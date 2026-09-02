@@ -2,9 +2,9 @@
 
 export interface RedisAdapter {
   get(key: string): Promise<string | null>;
-  set(key: string, value: string, mode?: "EX" | "PX", ttl?: number): Promise<"OK" | null>;
+  set(key: string, value: string, ...args: unknown[]): Promise<"OK" | null>;
   setex(key: string, ttl: number, value: string): Promise<"OK" | null>;
-  setnx(key: string, value: string, ttl?: number): Promise<"OK" | null>;
+  setnx(key: string, value: string): Promise<number>;
   del(...keys: string[]): Promise<number>;
   exists(key: string): Promise<0 | 1>;
   expire(key: string, seconds: number): Promise<0 | 1>;

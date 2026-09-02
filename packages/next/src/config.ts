@@ -7,7 +7,7 @@ import crypto from "crypto";
 
 const DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$ZHVtbXloYXNo";
 
-export function createAuthOptions(config: AuthNextConfig): NextAuthOptions {
+export async function createAuthOptions(config: AuthNextConfig): Promise<NextAuthOptions> {
   const backendUrl = config.backendUrl || process.env.BACKEND_URL || "http://localhost:5000";
   const exchangeConfig = { backendUrl, hmacSecret: config.hmacSecret };
   const isProd = process.env.NODE_ENV === "production";
@@ -15,7 +15,8 @@ export function createAuthOptions(config: AuthNextConfig): NextAuthOptions {
   const providers: NextAuthOptions["providers"] = [];
 
   if (config.google) {
-    const { GoogleProvider } = require("next-auth/providers/google");
+    const mod = await import("next-auth/providers/google");
+    const GoogleProvider = mod.default;
     providers.push(
       GoogleProvider({
         clientId: config.google.clientId,
@@ -29,7 +30,8 @@ export function createAuthOptions(config: AuthNextConfig): NextAuthOptions {
     );
   }
 
-  const { CredentialsProvider } = require("next-auth/providers/credentials");
+  const credMod = await import("next-auth/providers/credentials");
+  const CredentialsProvider = credMod.default;
   providers.push(
     CredentialsProvider({
       id: "credentials",
@@ -44,8 +46,8 @@ export function createAuthOptions(config: AuthNextConfig): NextAuthOptions {
           throw new Error("Invalid login attempt.");
         }
         const email = credentials.email.toLowerCase().trim();
-        const argon2 = require("argon2");
-        const { verifySync: verifyTOTP } = require("otplib");
+        const argon2 = await import("argon2");
+        const { verifySync: verifyTOTP } = await import("otplib");
 
         const user = await config.userStore.findByEmail(email);
         if (!user || !user.password) {
@@ -84,8 +86,17 @@ export function createAuthOptions(config: AuthNextConfig): NextAuthOptions {
         void callInternal("/clear-attempts", { email }, exchangeConfig);
         void callInternal("/audit", { event: "LOGIN_SUCCESS", email, userId: user.id, reason: "credentials" }, exchangeConfig);
 
-        const { password: _pw, twoFactorSecret: _secret, ...safeUser } = user;
-        return safeUser;
+        const {
+          password: _pw,
+          twoFactorSecret: _secret,
+          twoFactorEnabled: _2fa,
+          emailVerified: _ev,
+          lastLoginAt: _ll,
+          bannedAt: _ban,
+          banReason: _br,
+          ...safeUser
+        } = user;
+        return { ...safeUser, role: safeUser.role ?? "USER" };
       },
     }),
   );
@@ -105,7 +116,7 @@ export function createAuthOptions(config: AuthNextConfig): NextAuthOptions {
       maxAge: config.sessionMaxAge ?? 7 * 24 * 60 * 60,
       updateAge: config.sessionUpdateAge ?? 24 * 60 * 60,
     },
-    secret: config.hmacSecret,
+    secret: config.nextAuthSecret || config.hmacSecret,
     callbacks: {
       async jwt({ token, user, account, trigger }) {
         if (token.twoFactorPending) {
@@ -191,16 +202,13 @@ export function createAuthOptions(config: AuthNextConfig): NextAuthOptions {
         return token;
       },
       async session({ session, token }) {
-        const s = session as unknown as Record<string, unknown>;
-        const u = (session.user ?? {}) as unknown as Record<string, unknown>;
-        u.id = token.id as string;
-        u.role = token.role as string;
-        s.user = u;
-        s.backendToken = token.twoFactorPending ? "" : (token.backendToken as string);
-        s.sseToken = token.sseToken as string;
-        s.sessionId = token.sessionId as string;
-        s.error = token.error as string | undefined;
-        s.twoFactorPending = token.twoFactorPending === true;
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.backendToken = token.twoFactorPending ? "" : (token.backendToken as string);
+        session.sseToken = token.sseToken as string;
+        session.sessionId = token.sessionId as string;
+        session.error = token.error as string | undefined;
+        session.twoFactorPending = token.twoFactorPending === true;
         return session;
       },
       async signIn({ user, account, profile }) {
@@ -226,9 +234,6 @@ export function createAuthOptions(config: AuthNextConfig): NextAuthOptions {
           } catch {
             return true;
           }
-        }
-        if (account?.provider === "credentials" && !(user as unknown as Record<string, unknown>).emailVerified) {
-          throw new Error("Please verify your email to log in.");
         }
         return true;
       },

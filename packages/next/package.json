@@ -18,6 +18,14 @@
     "./hooks": {
       "import": "./dist/hooks/index.js",
       "types": "./dist/hooks/index.d.ts"
+    },
+    "./api": {
+      "import": "./dist/api/index.js",
+      "types": "./dist/api/index.d.ts"
+    },
+    "./email": {
+      "import": "./dist/email/index.js",
+      "types": "./dist/email/index.d.ts"
     }
   },
   "files": ["dist", "README.md", "LICENSE"],
@@ -43,11 +51,13 @@
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
     "argon2": "^0.44.0",
+    "nodemailer": "^7.0.0",
     "otplib": "^13.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.0.0",
+    "@types/nodemailer": "^6.4.0",
     "@types/react": "^19.0.0",
     "react-hook-form": "^7.50.0",
     "react-hot-toast": "^2.4.0",
@@ -63,5 +73,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

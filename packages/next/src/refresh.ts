@@ -41,6 +41,6 @@ export async function silentRefresh(
     resolve(result);
     return result;
   } finally {
-    refreshLocks.delete(sessionId);
+    setTimeout(() => refreshLocks.delete(sessionId), 100);
   }
 }

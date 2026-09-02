@@ -16,12 +16,11 @@ export class RefreshLock {
       const result = await this.redis.setnx(
         this.lockKey(sessionId),
         "1",
-        DEFAULTS.refreshLockTtlSeconds,
       );
-      return result === "OK";
+      return result === 1;
     } catch (err) {
       console.error("[RefreshLock] Failed to acquire lock:", err);
-      return true;
+      return false;
     }
   }
 

@@ -62,6 +62,8 @@ export class MiddlewareFactory {
   private readonly audit: AuditLog;
   private readonly observability?: ObservabilitySink;
   private readonly cache?: CacheAdapter;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private sessionTimeoutManager: any = null;
 
   constructor(rawConfig: AuthCoreConfig) {
     this.config = resolveConfig(rawConfig);
@@ -104,7 +106,12 @@ export class MiddlewareFactory {
     const storedMetadata = await redis.get(metadataKey);
     if (!storedMetadata) return null;
 
-    const metadata: SessionMetadata = JSON.parse(storedMetadata);
+    let metadata: SessionMetadata;
+    try {
+      metadata = JSON.parse(storedMetadata);
+    } catch {
+      return null;
+    }
     if (looksLikeServerToServerRequest(req)) return null;
 
     if (metadata.deviceId == null || looksLikeServerToServerUA(metadata.userAgent)) {
@@ -291,7 +298,7 @@ export class MiddlewareFactory {
       middleware() {
         return async (req: AuthRequest, res: { status(code: number): { json(data: unknown): unknown }; end(): unknown }, next: (err?: Error) => void) => {
           if (["GET", "HEAD", "OPTIONS"].includes(req.method ?? "")) return next();
-          if (req.path?.includes("/webhooks/") || req.path?.includes("/callback")) return next();
+          if (req.path?.startsWith("/webhooks/") || req.path?.includes("/callback")) return next();
 
           const csrfToken = req.headers["x-csrf-token"] as string;
           if (!req.user?.id) {
@@ -299,25 +306,15 @@ export class MiddlewareFactory {
           }
 
           const sessionId = req.user.sessionId || "default";
-          const isValid = await self.cache
-            ? (async () => {
-                const stored = await self.config.redis.get(`${self.config.keyPrefix}csrf:${req.user!.id}:${sessionId}`);
-                if (!stored || !csrfToken) return false;
-                try {
-                  return crypto.timingSafeEqual(Buffer.from(csrfToken, "base64url"), Buffer.from(stored, "base64url"));
-                } catch {
-                  return false;
-                }
-              })()
-            : (async () => {
-                const stored = await self.config.redis.get(`${self.config.keyPrefix}csrf:${req.user!.id}:${sessionId}`);
-                if (!stored || !csrfToken) return false;
-                try {
-                  return crypto.timingSafeEqual(Buffer.from(csrfToken, "base64url"), Buffer.from(stored, "base64url"));
-                } catch {
-                  return false;
-                }
-              })();
+          const stored = await self.config.redis.get(`${self.config.keyPrefix}csrf:${req.user.id}:${sessionId}`);
+          if (!stored || !csrfToken) return res.status(403).json({ success: false, message: "Invalid CSRF token", code: "CSRF_VALIDATION_FAILED" });
+
+          let isValid = false;
+          try {
+            isValid = crypto.timingSafeEqual(Buffer.from(csrfToken, "base64url"), Buffer.from(stored, "base64url"));
+          } catch {
+            isValid = false;
+          }
 
           if (!isValid) {
             return res.status(403).json({ success: false, message: "Invalid CSRF token", code: "CSRF_VALIDATION_FAILED" });
@@ -338,14 +335,6 @@ export class MiddlewareFactory {
 
         try {
           const redis = self.config.redis;
-          const now = Date.now();
-          const windowStart = now - windowSeconds * 1000;
-          const member = `${now}:${Math.random()}`;
-
-          const pipe = redis.pipeline();
-          pipe.setex(`${key}:z`, windowSeconds, member);
-          const results = await pipe.exec();
-
           const countKey = `${key}:count`;
           const count = await redis.incr(countKey);
           if (count === 1) await redis.expire(countKey, windowSeconds);
@@ -369,21 +358,24 @@ export class MiddlewareFactory {
       const sessionId = req.user?.sessionId;
       if (!sessionId) return next();
 
-      const timeoutManager = new (await import("./sessionTimeout.js")).SessionTimeoutManager(self.config.redis, {
-        inactivityTimeout: self.config.inactivityTimeout,
-        absoluteTimeout: self.config.absoluteTimeout,
-        prefix: self.config.keyPrefix,
-      });
+      if (!self.sessionTimeoutManager) {
+        const { SessionTimeoutManager } = await import("./sessionTimeout.js");
+        self.sessionTimeoutManager = new SessionTimeoutManager(self.config.redis, {
+          inactivityTimeout: self.config.inactivityTimeout,
+          absoluteTimeout: self.config.absoluteTimeout,
+          prefix: self.config.keyPrefix,
+        });
+      }
 
-      const tracked = await timeoutManager.isTracked(sessionId);
+      const tracked = await self.sessionTimeoutManager.isTracked(sessionId);
       if (!tracked) return next();
 
-      const inactive = await timeoutManager.isInactive(sessionId);
+      const inactive = await self.sessionTimeoutManager.isInactive(sessionId);
       if (inactive) {
         return res.status(401).json({ success: false, code: "SESSION_TIMEOUT", message: "Session expired" });
       }
 
-      await timeoutManager.updateActivity(sessionId);
+      await self.sessionTimeoutManager.updateActivity(sessionId);
       next();
     };
   }
@@ -435,8 +427,8 @@ export class MiddlewareFactory {
       }
 
       if (!user.emailVerified) {
-        await self.config.userStore.updateEmailVerified(user.id, new Date());
-        user.emailVerified = new Date();
+        self.audit.log("EXCHANGE_FAILED", { userId, email, ip, reason: "Email not verified" });
+        throw self.errors.UnauthorizedError("Email not verified", "EMAIL_NOT_VERIFIED");
       }
 
       const sid = sessionId || crypto.randomUUID();
@@ -490,9 +482,9 @@ export class MiddlewareFactory {
 
       const redis = self.config.redis;
       const lockKey = `${self.config.keyPrefix}refresh:lock:${decoded.sessionId}`;
-      const lockAcquired = await redis.setnx(lockKey, "1", 45);
+      const lockResult = await redis.set(lockKey, "1", "EX", 45, "NX");
 
-      if (!lockAcquired) {
+      if (lockResult !== "OK") {
         throw self.errors.BadRequestError("Refresh already in progress", "REFRESH_IN_PROGRESS");
       }
 
