@@ -1,0 +1,67 @@
+{
+  "name": "@focura/auth-next",
+  "version": "1.0.0",
+  "description": "Production-ready Next.js authentication with NextAuth.js. Drop-in auth with credentials, Google OAuth, 2FA, email verification, and password reset.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./components": {
+      "import": "./dist/components/index.js",
+      "types": "./dist/components/index.d.ts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks/index.js",
+      "types": "./dist/hooks/index.d.ts"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "next": "^14.0.0 || ^15.0.0",
+    "next-auth": "^4.0.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": { "optional": false },
+    "next-auth": { "optional": false },
+    "react": { "optional": false },
+    "react-dom": { "optional": false }
+  },
+  "dependencies": {
+    "@next-auth/prisma-adapter": "^1.0.7",
+    "argon2": "^0.44.0",
+    "otplib": "^13.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@hookform/resolvers": "^3.0.0",
+    "@types/react": "^19.0.0",
+    "react-hook-form": "^7.50.0",
+    "react-hot-toast": "^2.4.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3"
+  },
+  "keywords": ["nextjs", "next-auth", "authentication", "auth", "2fa", "oauth", "credentials", "google"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gaziraihan1/focura-auth.git",
+    "directory": "packages/next"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
