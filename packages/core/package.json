@@ -1,6 +1,6 @@
 {
   "name": "@focura-prod/auth-core",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Production-ready authentication core for Express.js backends. Dual-token RS256 JWT architecture with session binding, token rotation, 2FA, account lockout, and audit logging.",
   "type": "module",
   "main": "./dist/index.js",
@@ -66,12 +66,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/focura/focura-auth.git",
+    "url": "https://github.com/focura-prod/focura-auth.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/focura/focura-auth#readme",
+  "homepage": "https://github.com/focura-prod/focura-auth#readme",
   "bugs": {
-    "url": "https://github.com/focura/focura-auth/issues"
+    "url": "https://github.com/focura-prod/focura-auth/issues"
   },
   "engines": {
     "node": ">=22"
