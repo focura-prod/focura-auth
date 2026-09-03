@@ -558,6 +558,7 @@ export class MiddlewareFactory {
         );
         self.audit.log("LOGOUT_ALL_DEVICES", { userId });
       } else if (userId && sessionId) {
+        await self.config.redis.srem(`${self.config.keyPrefix}user:sessions:${userId}`, sessionId);
         await self.config.redis.del(`${self.config.keyPrefix}session:metadata:${sessionId}`);
         self.audit.log("LOGOUT", { userId, sessionId });
       }

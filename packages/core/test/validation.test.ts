@@ -24,7 +24,15 @@ describe("exchangeSchema", () => {
   });
 
   it("should accept timestamp as string", () => {
-    expect(exchangeSchema.safeParse({ ...valid, timestamp: "1234567890" }).success).toBe(true);
+    expect(exchangeSchema.safeParse({ ...valid, timestamp: Date.now().toString() }).success).toBe(true);
+  });
+
+  it("should reject timestamp older than 60 seconds", () => {
+    expect(exchangeSchema.safeParse({ ...valid, timestamp: Date.now() - 61_000 }).success).toBe(false);
+  });
+
+  it("should reject negative timestamp (future)", () => {
+    expect(exchangeSchema.safeParse({ ...valid, timestamp: Date.now() + 1000 }).success).toBe(false);
   });
 });
 

@@ -3,6 +3,7 @@ import type { DataStore } from "../types.js";
 export async function handleResetPassword(req: Request, deps: {
   dataStore: DataStore;
   argon2: { hash: (pwd: string) => Promise<string> };
+  revokeSessions?: (email: string) => Promise<void> | void;
 }) {
   try {
     const { token, password } = await req.json();
@@ -15,6 +16,14 @@ export async function handleResetPassword(req: Request, deps: {
     const hashedPassword = await deps.argon2.hash(password);
     await deps.dataStore.updateUserByEmail(resetToken.email, { password: hashedPassword, lastPasswordChange: new Date() });
     await deps.dataStore.deletePasswordResetToken(resetToken.email);
+
+    if (deps.revokeSessions) {
+      try {
+        await deps.revokeSessions(resetToken.email);
+      } catch {
+        // Best-effort — password is already reset even if revocation fails
+      }
+    }
 
     return Response.json({ message: "Password reset successfully" });
   } catch (error) {
