@@ -273,6 +273,248 @@ import { TokenManager, SessionManager, TotpManager, AccountLockout } from "@focu
 
 These are available but not required for normal application development.
 
+---
+
+## Default Configuration
+
+```typescript
+import { DEFAULTS } from "@focura/auth-core";
+
+// All default values:
+DEFAULTS.keyPrefix;              // "focura:"
+DEFAULTS.issuer;                 // "focura-app"
+DEFAULTS.audience;               // "focura-backend"
+DEFAULTS.accessTokenExpiry;      // "15m"
+DEFAULTS.refreshTokenExpiry;     // "7d"
+DEFAULTS.sseTokenExpiry;         // "30s"
+DEFAULTS.maxConcurrentSessions;  // 5
+DEFAULTS.lockoutMaxFailures;     // 10
+DEFAULTS.lockoutSeconds;         // 900 (15 minutes)
+DEFAULTS.lockoutWindowSeconds;   // 3600 (1 hour)
+DEFAULTS.inactivityTimeout;      // 604800 (7 days)
+DEFAULTS.absoluteTimeout;        // 604800 (7 days)
+```
+
+### resolveConfig
+
+Merges your config with defaults. Useful for advanced customization:
+
+```typescript
+import { resolveConfig } from "@focura/auth-core";
+
+const resolved = resolveConfig({
+  redis,
+  userStore,
+  hmacSecret: "...",
+  jwt: { privateKey: "...", publicKey: "..." },
+  lockout: { maxFailures: 5 },  // override default 10
+});
+
+// resolved contains all values with defaults applied
+```
+
+---
+
+## Error Handling
+
+All errors include `code` and `statusCode` for API responses:
+
+```typescript
+import {
+  UnauthorizedError,      // 401, code: UNAUTHORIZED
+  TokenExpiredError,      // 401, code: TOKEN_EXPIRED
+  InvalidTokenError,      // 401, code: INVALID_TOKEN
+  TokenRevokedError,      // 401, code: TOKEN_REVOKED
+  SessionHijackError,     // 401, code: SESSION_HIJACK_DETECTED
+  EmailNotVerifiedError,  // 403, code: EMAIL_NOT_VERIFIED
+  AccountBannedError,     // 403, code: ACCOUNT_BANNED
+  ForbiddenError,         // 403, code: FORBIDDEN
+  BadRequestError,        // 400, code: BAD_REQUEST
+  ValidationError,        // 400, code: VALIDATION_ERROR
+} from "@focura/auth-core";
+```
+
+### Example: Catching errors
+
+```typescript
+try {
+  const { user, payload } = await auth.verifyToken({ token, ipAddress, userAgent });
+} catch (e) {
+  if (e instanceof TokenExpiredError) {
+    return res.status(401).json({ error: "Token expired", code: e.code });
+  }
+  if (e instanceof InvalidTokenError) {
+    return res.status(401).json({ error: "Invalid token", code: e.code });
+  }
+  if (e instanceof SessionHijackError) {
+    return res.status(401).json({ error: "Session hijack detected", code: e.code });
+  }
+  if (e instanceof AccountBannedError) {
+    return res.status(403).json({ error: "Account banned", reason: e.message });
+  }
+  if (e instanceof ValidationError) {
+    return res.status(400).json({ error: e.message, details: e.details });
+  }
+  return res.status(500).json({ error: "Internal server error" });
+}
+```
+
+### defaultErrors Factory
+
+Use as base for custom error classes:
+
+```typescript
+import { defaultErrors } from "@focura/auth-core";
+
+const customErrors = {
+  ...defaultErrors,
+  UnauthorizedError: (msg) => new MyCustomUnauthorizedError(msg),
+};
+
+const auth = new AuthService({ ..., errors: customErrors });
+```
+
+---
+
+## Input & Result Types
+
+All types are exported for TypeScript autocompletion:
+
+```typescript
+import type {
+  // Token exchange
+  ExchangeInput,        // { userId, email, role, sessionId, timestamp, signature }
+  ExchangeResult,       // { accessToken, refreshToken, sseToken, sessionId }
+
+  // Token verification
+  VerifyTokenInput,     // { token, ipAddress?, userAgent? }
+  VerifyTokenResult,    // { user, payload }
+
+  // Refresh
+  RefreshInput,         // { refreshToken }
+  AuthRefreshResult,    // { accessToken, refreshToken, sseToken }
+
+  // Logout
+  LogoutInput,          // { userId, sessionId, accessTokenJti?, accessToken?, logoutAll? }
+
+  // 2FA
+  TwoFactorSetupResult, // { secret, uri }
+  TwoFactorVerifyInput, // { token, secret }
+
+  // Tokens
+  TokenPayload,         // { id, email, role, type, version, jti, sessionId? }
+  TokenPair,            // { accessToken, refreshToken, accessTokenExpiry, refreshTokenExpiry }
+
+  // Config sub-types
+  TokenConfig,          // { privateKey, publicKey, issuer?, audience?, accessTokenExpiry?, ... }
+  SessionConfig,        // { inactivityTimeout?, absoluteTimeout?, maxConcurrent?, metadataTtl? }
+  LockoutConfig,        // { maxFailures?, lockoutSeconds?, windowSeconds? }
+
+  // Adapters
+  RedisAdapter,
+  RedisPipeline,
+  UserStore,
+  User,
+  CacheAdapter,
+  AuditLogger,
+  ObservabilitySink,
+  ErrorFactory,
+  ZodSchema,
+
+  // Session
+  SessionMetadata,      // { deviceId, ipAddress, userAgent, location?, lastActivity }
+  SessionLifecycle,     // { recordCreation, invalidate, isTracked, isInactive }
+  DeviceFingerprint,    // { userAgent, acceptLanguage, acceptEncoding, ipAddress }
+  AuthRequest,          // Extended request with user property
+} from "@focura/auth-core";
+```
+
+---
+
+## MiddlewareFactory Methods
+
+All HTTP middleware and route handlers:
+
+```typescript
+import { MiddlewareFactory } from "@focura/auth-core";
+
+const factory = new MiddlewareFactory(config);
+
+// Route handlers
+factory.createExchangeHandler();       // POST /api/v1/auth/exchange
+factory.createRefreshHandler();        // POST /api/v1/auth/refresh
+factory.createLogoutHandler();         // POST /api/v1/auth/logout
+
+// Auth middleware
+factory.createAuthenticateMiddleware();           // Verifies JWT, attaches req.user
+factory.createAuthorizeMiddleware("ADMIN", "MOD"); // Role-based access
+
+// Security middleware
+factory.createCsrfMiddleware();                   // CSRF token validation
+factory.createRateLimitMiddleware();              // Sliding window rate limiting
+factory.createSessionTimeoutMiddleware();         // Inactivity + absolute timeout
+```
+
+---
+
+## Utility Functions
+
+Low-level helpers available for advanced use:
+
+```typescript
+import {
+  generateDeviceFingerprint,  // (req) => DeviceFingerprint
+  getClientIp,                // (req) => string
+  isPrivateIp,                // (ip) => boolean — checks 10.x, 172.16-31.x, 192.168.x, 127.x
+  normalizeUserAgent,         // (ua) => string — truncates long user agents
+  createSessionMetadata,      // (fingerprint, sessionId) => SessionMetadata
+  validateSessionBinding,     // (metadata, fingerprint, options) => { bound, reason? }
+  looksLikeServerToServerRequest, // (req) => boolean
+  looksLikeServerToServerUA,      // (ua) => boolean
+} from "@focura/auth-core";
+```
+
+---
+
+## Audit Event Types
+
+50+ event types with severity levels:
+
+```typescript
+import { AUDIT_SEVERITY } from "@focura/auth-core";
+
+// AUDIT_SEVERITY maps event types to severity:
+// "info"    — LOGIN_SUCCESS, LOGOUT, TOKEN_REFRESHED, SESSION_BOUND, etc.
+// "warn"    — LOGIN_FAILED, DEVICE_MISMATCH, RATE_LIMIT_EXCEEDED, etc.
+// "critical" — TOKEN_REPLAY_DETECTED, ACCOUNT_LOCKED, MALWARE_DETECTED, etc.
+```
+
+```typescript
+import type { AuditEventType, AuditSeverity } from "@focura/auth-core";
+
+// AuditEventType — union of all 50+ event strings
+// AuditSeverity — "info" | "warn" | "critical"
+```
+
+---
+
+## Zod Schemas
+
+Validation schemas used internally (available for external use):
+
+```typescript
+import { exchangeSchema, refreshSchema, logoutSchema } from "@focura/auth-core";
+
+// exchangeSchema validates ExchangeInput
+// refreshSchema validates RefreshInput
+// logoutSchema validates LogoutInput
+
+const result = exchangeSchema.safeParse(data);
+if (!result.success) {
+  console.log(result.error.issues);
+}
+```
+
 ## License
 
 MIT

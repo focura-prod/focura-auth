@@ -16,6 +16,41 @@ Production-ready Next.js authentication with NextAuth.js. Drop-in auth with cred
 - **API route handlers** — Ready-to-use Next.js route handlers
 - **ORM-agnostic** — Works with Prisma, Drizzle, MongoDB, or any custom backend
 
+## NextAuth.js Compatibility
+
+This package is built for **NextAuth.js v4** (`next-auth@^4.0.0`).
+
+| NextAuth Version | Status |
+|------------------|--------|
+| v4.x (stable) | ✅ Fully supported |
+| v5.x (Auth.js beta) | ❌ Not compatible — different API |
+
+We use NextAuth v4 because it is the latest stable release with production-ready
+JWT strategy, credentials provider, and callback system. v5 (Auth.js) is a
+complete rewrite with a different architecture and is still in beta.
+
+## Why Not Just Use NextAuth Directly?
+
+NextAuth handles session management and OAuth. This package adds what NextAuth
+does not provide out of the box:
+
+| Feature | NextAuth alone | With @focura/auth-next |
+|---------|---------------|----------------------|
+| HMAC token exchange to backend | ❌ Manual | ✅ Built-in |
+| Silent token refresh with dedup | ❌ Manual | ✅ Built-in |
+| 2FA (TOTP) | ❌ Requires third-party adapter | ✅ Built-in |
+| Email verification | ❌ Manual | ✅ API handler + UI |
+| Password reset | ❌ Manual | ✅ API handler + UI |
+| Rate limiting on auth routes | ❌ Manual | ✅ Built-in |
+| Pre-built login/register UI | ❌ Build yourself | ✅ Drop-in components |
+| Custom UI hooks | ❌ N/A | ✅ useAuthForm, etc. |
+| Account lockout | ❌ Manual | ✅ Via backend |
+| Session binding (fingerprint) | ❌ Manual | ✅ Via backend |
+
+**In short:** NextAuth gives you sessions + OAuth. We give you the rest —
+token exchange, 2FA, email flows, UI, and security hardening — all wired
+together so you do not have to build it yourself.
+
 ## Installation
 
 ```bash
