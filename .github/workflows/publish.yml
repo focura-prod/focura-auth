@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -45,6 +49,9 @@ jobs:
   publish-gpr:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     strategy:
       matrix:
         package: [core, next]
@@ -61,4 +68,4 @@ jobs:
       - name: Publish to GitHub Packages
         run: pnpm --filter @focura-prod/auth-${{ matrix.package }} publish --no-git-checks --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GH_PAT }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
