@@ -61,4 +61,4 @@ jobs:
       - name: Publish to GitHub Packages
         run: pnpm --filter @focura-prod/auth-${{ matrix.package }} publish --no-git-checks --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GH_PAT }}
