@@ -1,4 +1,4 @@
-// @focura/auth-core — Default error classes
+// @focura-prod/auth-core — Default error classes
 
 export class UnauthorizedError extends Error {
   public readonly code: string;

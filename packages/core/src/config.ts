@@ -1,4 +1,4 @@
-// @focura/auth-core — Default configuration and config merge utility
+// @focura-prod/auth-core — Default configuration and config merge utility
 
 import type { AuthCoreConfig, AuditSeverity, AuditEventType } from "./types.js";
 

@@ -48,13 +48,13 @@ jobs:
           
           | Package | Version |
           |---------|---------|
-          | @focura/auth-core | ${CORE_VERSION} |
-          | @focura/auth-next | ${NEXT_VERSION} |
+          | @focura-prod/auth-core | ${CORE_VERSION} |
+          | @focura-prod/auth-next | ${NEXT_VERSION} |
           
           ## Install
           
           \`\`\`bash
-          npm install @focura/auth-core@${CORE_VERSION} @focura/auth-next@${NEXT_VERSION}
+          npm install @focura-prod/auth-core@${CORE_VERSION} @focura-prod/auth-next@${NEXT_VERSION}
           \`\`\`
           
           **Full Changelog**: https://github.com/${{ github.repository }}/compare/${TAG:-$(git rev-list --max-parents=0 HEAD | head -1)}...${CURRENT}
