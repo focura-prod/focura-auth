@@ -1,6 +1,6 @@
 {
   "name": "@focura/auth-next",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Production-ready Next.js authentication with NextAuth.js. Drop-in auth with credentials, Google OAuth, 2FA, email verification, and password reset.",
   "type": "module",
   "main": "./dist/index.js",
@@ -28,7 +28,11 @@
       "types": "./dist/email/index.d.ts"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -43,10 +47,18 @@
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "peerDependenciesMeta": {
-    "next": { "optional": false },
-    "next-auth": { "optional": false },
-    "react": { "optional": false },
-    "react-dom": { "optional": false }
+    "next": {
+      "optional": false
+    },
+    "next-auth": {
+      "optional": false
+    },
+    "react": {
+      "optional": false
+    },
+    "react-dom": {
+      "optional": false
+    }
   },
   "dependencies": {
     "argon2": "^0.44.0",
@@ -63,7 +75,16 @@
     "tsup": "^8.0.0",
     "typescript": "^5.9.3"
   },
-  "keywords": ["nextjs", "next-auth", "authentication", "auth", "2fa", "oauth", "credentials", "google"],
+  "keywords": [
+    "nextjs",
+    "next-auth",
+    "authentication",
+    "auth",
+    "2fa",
+    "oauth",
+    "credentials",
+    "google"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
