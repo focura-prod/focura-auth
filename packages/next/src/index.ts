@@ -1,4 +1,5 @@
-export { createAuthOptions } from "./config.js";
+export { createAuthOptions, getRoutes } from "./config.js";
+export type { ResolvedRoutes } from "./config.js";
 export { createExchangeProof, exchangeForTokens } from "./exchange.js";
 export { silentRefresh } from "./refresh.js";
 export { callInternal, recordLoginFailure } from "./bridge.js";

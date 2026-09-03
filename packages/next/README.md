@@ -796,10 +796,53 @@ interface AuthNextConfig {
     findById(id: string): Promise<User | null>;
     update?(id: string, data: Record<string, unknown>): Promise<void>;
   };
+  callbackRoutes?: {            // Optional — customize redirect routes
+    success?: string;           // After login (default: "/authentication/success")
+    login?: string;             // Sign-in page (default: "/authentication/login")
+    register?: string;          // Register page (default: "/authentication/login")
+    twoFactor?: string;         // 2FA page (default: "/authentication/2fa")
+    verifyEmail?: string;       // After email verified (default: "/authentication/login")
+    forgotPassword?: string;    // Forgot password (default: "/authentication/forgot-password")
+    resetPassword?: string;     // Reset password (default: "/authentication/reset-password")
+    error?: string;             // Error page (default: "/authentication/error")
+  };
   sessionMaxAge?: number;       // Default: 7 days (seconds)
   sessionUpdateAge?: number;    // Default: 24 hours (seconds)
 }
 ```
+
+## Redirect Routes
+
+After login, the package redirects users to a success page. After password reset, it redirects to the login page. These routes are **configurable** so you do not need to create pages at fixed paths.
+
+### Default Routes
+
+| Event | Default Route | Configurable Via |
+|-------|---------------|------------------|
+| Login success | `/authentication/success` | `callbackRoutes.success` |
+| 2FA required | `/authentication/2fa` | `callbackRoutes.twoFactor` |
+| Registration success | `/authentication/login` | `callbackRoutes.login` |
+| Email verified | `/authentication/login` | `callbackRoutes.verifyEmail` |
+| Password reset | `/authentication/login` | `callbackRoutes.login` |
+
+### Custom Routes Example
+
+```typescript
+const authOptions = await createAuthOptions({
+  // ...existing config
+  callbackRoutes: {
+    success: "/dashboard",           // redirect here after login
+    login: "/auth/signin",           // custom sign-in page
+    twoFactor: "/auth/2fa",          // custom 2FA page
+    verifyEmail: "/auth/verify",     // custom verify page
+    forgotPassword: "/auth/forgot",  // custom forgot password
+    resetPassword: "/auth/reset",    // custom reset password
+    error: "/auth/error",            // custom error page
+  },
+});
+```
+
+If you do not set `callbackRoutes`, the package uses the defaults above. You only need to configure this if your auth pages are not at `/authentication/*`.
 
 ## Environment Variables
 
@@ -905,6 +948,7 @@ if (result?.locked) {
 | What | Import |
 |------|--------|
 | Main config | `import { createAuthOptions } from "@focura/auth-next"` |
+| Route config | `import { getRoutes, type ResolvedRoutes } from "@focura/auth-next"` |
 | Token utilities | `import { createExchangeProof, exchangeForTokens, silentRefresh, logout, recordLoginFailure } from "@focura/auth-next"` |
 | Components | `import { AuthPage } from "@focura/auth-next/components"` |
 | Hooks | `import { useAuthForm } from "@focura/auth-next/hooks"` |

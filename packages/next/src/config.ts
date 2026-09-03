@@ -101,6 +101,9 @@ export async function createAuthOptions(config: AuthNextConfig): Promise<NextAut
     }),
   );
 
+  // Store resolved routes for hooks
+  resolveRoutes(config.callbackRoutes);
+
   return {
     ...(config.adapter ? { adapter: config.adapter as NextAuthOptions["adapter"] } : {}),
     providers,
@@ -238,10 +241,46 @@ export async function createAuthOptions(config: AuthNextConfig): Promise<NextAut
         return true;
       },
     },
-    pages: config.pages ?? {
-      signIn: "/authentication/login",
-      error: "/authentication/error",
+    pages: {
+      signIn: config.pages?.signIn ?? config.callbackRoutes?.login ?? "/authentication/login",
+      error: config.pages?.error ?? config.callbackRoutes?.error ?? "/authentication/error",
     },
     debug: !isProd && process.env.NEXTAUTH_DEBUG === "true",
   };
+}
+
+// --- Route Store ---
+// Allows hooks to read configured routes without prop drilling.
+
+export type ResolvedRoutes = {
+  success: string;
+  login: string;
+  register: string;
+  twoFactor: string;
+  verifyEmail: string;
+  forgotPassword: string;
+  resetPassword: string;
+  error: string;
+};
+
+const DEFAULT_ROUTES: ResolvedRoutes = {
+  success: "/authentication/success",
+  login: "/authentication/login",
+  register: "/authentication/login",
+  twoFactor: "/authentication/2fa",
+  verifyEmail: "/authentication/login",
+  forgotPassword: "/authentication/forgot-password",
+  resetPassword: "/authentication/reset-password",
+  error: "/authentication/error",
+};
+
+let _routes: ResolvedRoutes = { ...DEFAULT_ROUTES };
+
+export function resolveRoutes(callbackRoutes?: AuthNextConfig["callbackRoutes"]): ResolvedRoutes {
+  _routes = { ...DEFAULT_ROUTES, ...callbackRoutes };
+  return _routes;
+}
+
+export function getRoutes(): ResolvedRoutes {
+  return _routes;
 }

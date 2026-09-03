@@ -88,6 +88,12 @@ export interface AuthNextConfig {
   callbackRoutes?: {
     success?: string;
     login?: string;
+    register?: string;
+    twoFactor?: string;
+    verifyEmail?: string;
+    forgotPassword?: string;
+    resetPassword?: string;
+    error?: string;
   };
 }
 

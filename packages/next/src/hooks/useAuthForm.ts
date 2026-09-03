@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useCallback } from "react";
+import { getRoutes } from "../config.js";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email format"),
@@ -59,6 +60,7 @@ export function useAuthForm({ mode, callbackUrl: inputCallbackUrl }: UseAuthForm
   const onSubmit = async (values: AuthFormData) => {
     setFormError(null);
     const t = await toast();
+    const routes = getRoutes();
     try {
       if (mode === "login") {
         const result = await signIn("credentials", {
@@ -69,7 +71,7 @@ export function useAuthForm({ mode, callbackUrl: inputCallbackUrl }: UseAuthForm
         if (result?.error) {
           if (result.error === "2FA_REQUIRED") {
             (t as unknown as { (msg: string, opts?: unknown): void })?.("", { icon: "\u{1F510}" });
-            router.push(`/authentication/2fa?email=${encodeURIComponent(values.email)}`);
+            router.push(`${routes.twoFactor}?email=${encodeURIComponent(values.email)}`);
             return;
           }
           const errorMessage = "Invalid email or password.";
@@ -79,7 +81,7 @@ export function useAuthForm({ mode, callbackUrl: inputCallbackUrl }: UseAuthForm
         }
         if (result?.ok) {
           t.success("Welcome back!");
-          router.push(callbackUrl !== "/dashboard" ? `/authentication/success?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/authentication/success");
+          router.push(callbackUrl !== "/dashboard" ? `${routes.success}?callbackUrl=${encodeURIComponent(callbackUrl)}` : routes.success);
         }
       } else {
         const v = values as RegisterFormData;
@@ -96,7 +98,7 @@ export function useAuthForm({ mode, callbackUrl: inputCallbackUrl }: UseAuthForm
           return;
         }
         t.success("Registration successful! Check your email.");
-        router.push("/authentication/login?verifyEmail=true");
+        router.push(`${routes.login}?verifyEmail=true`);
       }
     } catch {
       const errorMessage = "Something went wrong.";
@@ -108,7 +110,8 @@ export function useAuthForm({ mode, callbackUrl: inputCallbackUrl }: UseAuthForm
   const handleGoogle = async () => {
     setIsGoogleLoading(true);
     try {
-      const googleCallback = callbackUrl !== "/dashboard" ? `/authentication/success?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/authentication/success";
+      const routes = getRoutes();
+      const googleCallback = callbackUrl !== "/dashboard" ? `${routes.success}?callbackUrl=${encodeURIComponent(callbackUrl)}` : routes.success;
       await signIn("google", { callbackUrl: googleCallback });
     } catch {
       const t = await toast();

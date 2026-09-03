@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { getRoutes } from "../config.js";
 
 const schema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -34,7 +35,8 @@ export function useResetPasswordPage({ token }: { token: string | null }) {
       });
       if (res.ok) {
         setSuccess(true);
-        setTimeout(() => router.push("/authentication/login"), 3000);
+        const routes = getRoutes();
+        setTimeout(() => router.push(routes.login), 3000);
       } else {
         const data = await res.json().catch(() => null);
         setError(data?.error || "Failed to reset password");

@@ -22,7 +22,10 @@
     "dev": "tsup --watch",
     "clean": "rm -rf dist",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "jsonwebtoken": "^9.0.2",
@@ -44,8 +47,10 @@
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   },
   "keywords": [
     "auth",

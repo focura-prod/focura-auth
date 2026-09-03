@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getRoutes } from "../config.js";
 
 type VerifyStatus = "loading" | "success" | "error";
 
@@ -28,7 +29,8 @@ export function useVerifyEmail({ token }: { token: string | null }) {
           if (cancelled) return;
           setStatus("success");
           setMessage(data?.message || "Email verified!");
-          redirectTimer = setTimeout(() => router.push("/authentication/login"), 3000);
+          const routes = getRoutes();
+          redirectTimer = setTimeout(() => router.push(routes.login), 3000);
         } else {
           const data = await res.json().catch(() => null);
           if (cancelled) return;
