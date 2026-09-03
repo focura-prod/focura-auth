@@ -1,6 +1,6 @@
 # @focura/auth-core
 
-Production-ready authentication core for Express.js backends.
+Production-ready authentication engine for Node.js backends.
 
 ## Features
 
@@ -19,19 +19,19 @@ Production-ready authentication core for Express.js backends.
 ## Installation
 
 ```bash
-npm install @focura/auth-core express ioredis
-npm install -D @types/express
+npm install @focura/auth-core ioredis
 ```
 
 ## Quick Start
 
 ```typescript
-import { MiddlewareFactory, AccountLockout, SessionManager } from "@focura/auth-core";
+import { AuthService } from "@focura/auth-core";
 import Redis from "ioredis";
+import fs from "fs";
 
 const redis = new Redis(process.env.REDIS_URL!);
 
-const auth = new MiddlewareFactory({
+const auth = new AuthService({
   redis,
   userStore: {
     findById: (id) => prisma.user.findUnique({ where: { id } }),
@@ -39,34 +39,147 @@ const auth = new MiddlewareFactory({
     update: (id, data) => prisma.user.update({ where: { id }, data }),
     updateEmailVerified: (id, date) => prisma.user.update({ where: { id }, data: { emailVerified: date } }),
   },
-  hmacSecret: process.env.NEXTAUTH_SECRET!,
+  hmacSecret: process.env.AUTH_SECRET!,
   jwt: {
     privateKey: fs.readFileSync("keys/private.pem", "utf8"),
     publicKey: fs.readFileSync("keys/public.pem", "utf8"),
   },
-  cache: {
-    get: (key) => redis.get(key).then(JSON.parse),
-    set: (key, val, ttl) => redis.setex(key, ttl!, JSON.stringify(val)),
-    delete: (key) => redis.del(key),
-  },
-  auditLogger: {
-    log: (event, data) => prisma.auditLog.create({ data: { event, ...data } }),
-  },
 });
+```
+
+## High-Level API
+
+### Token Exchange
+
+Exchange a HMAC-signed proof for JWT tokens:
+
+```typescript
+const tokens = await auth.exchange({
+  userId: user.id,
+  email: user.email,
+  role: user.role,
+  sessionId: crypto.randomUUID(),
+  timestamp: Date.now(),
+  signature: hmacSignature,
+});
+
+// tokens.accessToken, tokens.refreshToken, tokens.sseToken, tokens.sessionId
+```
+
+### Verify Token
+
+Verify an access token and load the user:
+
+```typescript
+const { user, payload } = await auth.verifyToken({
+  token: accessToken,
+  ipAddress: "192.168.1.1",
+  userAgent: "Mozilla/5.0...",
+});
+
+// payload.id, payload.email, payload.role, payload.jti, payload.sessionId
+```
+
+### Refresh Tokens
+
+Rotate refresh tokens atomically:
+
+```typescript
+const newTokens = await auth.refresh({
+  refreshToken: currentRefreshToken,
+});
+
+// newTokens.accessToken, newTokens.refreshToken, newTokens.sseToken
+```
+
+### Logout
+
+```typescript
+// Single session
+await auth.logout({
+  userId: user.id,
+  sessionId: sessionId,
+  accessTokenJti: jti,
+  accessToken: token,
+});
+
+// All sessions
+await auth.logout({
+  userId: user.id,
+  sessionId: sessionId,
+  logoutAll: true,
+});
+```
+
+### Two-Factor Authentication
+
+```typescript
+// Setup — generate secret + URI for QR code
+const { secret, uri } = auth.generateTwoFactor();
+// Display uri as QR code to user, store secret in database
+
+// Verify TOTP code
+const valid = await auth.verifyTwoFactor({ token: "123456", secret });
+```
+
+### Session Management
+
+```typescript
+// List active sessions
+const sessions = await auth.getActiveSessions(userId);
+
+// Revoke a specific session
+await auth.revokeSession(userId, sessionId);
+```
+
+### Account Lockout
+
+```typescript
+// Record failed login attempt
+const result = await auth.recordLoginFailure(email);
+if (result.locked) {
+  console.log(`Account locked until ${result.unlocksAt}`);
+}
+
+// Clear failures on successful login
+await auth.clearLoginFailures(email);
+
+// Check if account is locked
+const status = await auth.isAccountLocked(email);
+```
+
+### Audit Logging
+
+```typescript
+auth.log("WORKSPACE_CREATED", { userId, workspaceId });
+```
+
+## Express Integration
+
+For Express.js applications, use `MiddlewareFactory` for HTTP middleware:
+
+```typescript
+import { MiddlewareFactory } from "@focura/auth-core";
+
+const factory = new MiddlewareFactory(config);
 
 // Auth routes
-app.post("/api/v1/auth/exchange", auth.createExchangeHandler());
-app.post("/api/v1/auth/refresh", auth.createRefreshHandler());
-app.post("/api/v1/auth/logout", auth.createLogoutHandler());
+app.post("/api/v1/auth/exchange", factory.createExchangeHandler());
+app.post("/api/v1/auth/refresh", factory.createRefreshHandler());
+app.post("/api/v1/auth/logout", factory.createLogoutHandler());
 
 // Protected routes
-app.get("/api/v1/profile", auth.createAuthenticateMiddleware(), (req, res) => {
-  res.json({ user: req.user });
-});
+app.get("/api/v1/profile",
+  factory.createAuthenticateMiddleware(),
+  (req, res) => { res.json({ user: req.user }); }
+);
 
-app.get("/api/v1/admin", auth.createAuthenticateMiddleware(), auth.createAuthorizeMiddleware("ADMIN"), (req, res) => {
-  res.json({ admin: true });
-});
+// Role-based access
+app.get("/api/v1/admin",
+  factory.createAuthenticateMiddleware(),
+  factory.createAuthorizeMiddleware("ADMIN"),
+  (req, res) => { res.json({ admin: true }); }
+);
 ```
 
 ## Adapters
@@ -79,8 +192,7 @@ Works with ioredis or any compatible client:
 import Redis from "ioredis";
 const redis = new Redis(process.env.REDIS_URL);
 
-// Pass directly — ioredis satisfies the RedisAdapter interface
-const auth = new MiddlewareFactory({ redis, ... });
+const auth = new AuthService({ redis, ... });
 ```
 
 ### UserStore
@@ -132,6 +244,34 @@ interface AuthCoreConfig {
 openssl genpkey -algorithm RSA -out private.pem -pkeyopt rsa_keygen_bits:2048
 openssl rsa -in private.pem -pubout -out public.pem
 ```
+
+## API Hierarchy
+
+### Primary API (Recommended)
+
+```typescript
+import { AuthService } from "@focura/auth-core";
+```
+
+The `AuthService` class provides high-level, framework-agnostic authentication operations.
+
+### Extension API
+
+Interfaces for integrating your infrastructure:
+
+```typescript
+import type { UserStore, RedisAdapter, CacheAdapter, AuditLogger } from "@focura/auth-core";
+```
+
+### Advanced API
+
+Low-level classes for custom integrations:
+
+```typescript
+import { TokenManager, SessionManager, TotpManager, AccountLockout } from "@focura/auth-core";
+```
+
+These are available but not required for normal application development.
 
 ## License
 

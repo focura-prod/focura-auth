@@ -1,3 +1,18 @@
+// Primary API
+export { AuthService } from "./auth/authService.js";
+export type {
+  ExchangeInput,
+  ExchangeResult,
+  VerifyTokenInput,
+  VerifyTokenResult,
+  RefreshInput,
+  RefreshResult as AuthRefreshResult,
+  LogoutInput,
+  TwoFactorSetupResult,
+  TwoFactorVerifyInput,
+} from "./auth/authService.js";
+
+// Extension API — Adapter interfaces
 export type {
   RedisAdapter,
   RedisPipeline,
@@ -22,6 +37,7 @@ export type {
   AuditSeverity,
 } from "./types.js";
 
+// Advanced API — Low-level classes
 export { TokenManager } from "./tokens/index.js";
 export { TokenRevocation } from "./revocation/index.js";
 export { RefreshLock } from "./refresh/index.js";
