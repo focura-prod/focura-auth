@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Publish
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
       - name: Test
         run: pnpm -r test
 
-  publish:
+  publish-npm:
     needs: test
     runs-on: ubuntu-latest
     strategy:
@@ -41,3 +41,24 @@ jobs:
         run: pnpm --filter @focura/auth-${{ matrix.package }} publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-gpr:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [core, next]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://npm.pkg.github.com"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @focura/auth-${{ matrix.package }} build
+      - name: Publish to GitHub Packages
+        run: pnpm --filter @focura/auth-${{ matrix.package }} publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
