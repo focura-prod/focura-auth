@@ -4,14 +4,14 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts"],
-    exclude: ["src/**/*.test.tsx", "src/components/**"],
+    include: ["test/**/*.test.ts"],
     coverage: {
       provider: "v8",
+      reporter: ["text", "lcov"],
       include: ["src/**/*.ts"],
       exclude: [
-        "src/**/*.test.ts",
         "src/index.ts",
+        "src/api/index.ts",
         "src/components/**",
         "src/hooks/**",
         "src/config.ts",

@@ -17,7 +17,8 @@ export class TotpManager {
 
   async verify(token: string, secret: string): Promise<boolean> {
     try {
-      const result = verify({ token, secret });
+      // otplib v13 `verify` is async; awaiting also ensures rejections are caught here
+      const result = await verify({ token, secret });
       const normalized = result as unknown as boolean | { valid: boolean };
       if (typeof normalized === "boolean") return normalized;
       return normalized.valid === true;
