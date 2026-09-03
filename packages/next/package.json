@@ -49,7 +49,6 @@
     "react-dom": { "optional": false }
   },
   "dependencies": {
-    "@next-auth/prisma-adapter": "^1.0.7",
     "argon2": "^0.44.0",
     "nodemailer": "^7.0.0",
     "otplib": "^13.0.0",

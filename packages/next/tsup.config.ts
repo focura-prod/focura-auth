@@ -11,5 +11,5 @@ export default defineConfig({
   minify: false,
   target: "es2022",
   outDir: "dist",
-  external: ["next", "next-auth", "next-auth/react", "next-auth/providers/credentials", "next-auth/providers/google", "@next-auth/prisma-adapter", "react", "react-dom", "react-hook-form", "@hookform/resolvers/zod", "zod", "argon2", "otplib", "react-hot-toast", "nodemailer"],
+  external: ["next", "next-auth", "next-auth/react", "next-auth/providers/credentials", "next-auth/providers/google", "react", "react-dom", "react-hook-form", "@hookform/resolvers/zod", "zod", "argon2", "otplib", "react-hot-toast", "nodemailer"],
 });

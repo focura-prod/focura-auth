@@ -22,6 +22,24 @@ export type FailedAttemptResult = {
   attempts?: number;
 };
 
+export interface DataStore {
+  findUserByEmail(email: string): Promise<{
+    id: string;
+    email: string;
+    name?: string | null;
+    password?: string | null;
+    emailVerified?: Date | null;
+  } | null>;
+  createUser(data: { name?: string; email: string; password?: string }): Promise<{ id: string }>;
+  updateUserByEmail(email: string, data: Record<string, unknown>): Promise<void>;
+  createVerificationToken(data: { identifier: string; token: string; expires: Date }): Promise<void>;
+  findVerificationToken(token: string): Promise<{ identifier: string; expires: Date } | null>;
+  deleteVerificationToken(token: string, identifier: string): Promise<void>;
+  createPasswordResetToken(data: { email: string; token: string; expires: Date }): Promise<void>;
+  findPasswordResetToken(token: string): Promise<{ email: string; token: string } | null>;
+  deletePasswordResetToken(email: string): Promise<void>;
+}
+
 export interface AuthNextConfig {
   backendUrl?: string;
   hmacSecret: string;
@@ -34,7 +52,8 @@ export interface AuthNextConfig {
     signIn?: string;
     error?: string;
   };
-  prismaAdapter?: unknown;
+  adapter?: unknown;
+  dataStore: DataStore;
   userStore: {
     findByEmail(email: string): Promise<{
       id: string;

@@ -1,12 +1,8 @@
 import crypto from "crypto";
+import type { DataStore } from "../types.js";
 
 export async function handleForgotPassword(req: Request, deps: {
-  prisma: {
-    user: { findUnique: (args: { where: { email: string } }) => Promise<{ email: string } | null> };
-    passwordResetToken: {
-      create: (args: { data: { email: string; token: string; expires: Date; createdAt: Date } }) => Promise<unknown>;
-    };
-  };
+  dataStore: DataStore;
   sendPasswordResetEmail: (email: string, token: string) => Promise<void>;
 }) {
   try {
@@ -14,15 +10,13 @@ export async function handleForgotPassword(req: Request, deps: {
     if (!email) return Response.json({ message: "If an account exists, a reset link was sent" });
 
     const normalizedEmail = email.toLowerCase().trim();
-    const user = await deps.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const user = await deps.dataStore.findUserByEmail(normalizedEmail);
 
     if (user) {
       const resetToken = crypto.randomUUID();
       const expires = new Date(Date.now() + 60 * 60 * 1000);
 
-      await deps.prisma.passwordResetToken.create({
-        data: { email: normalizedEmail, token: resetToken, expires, createdAt: new Date() },
-      });
+      await deps.dataStore.createPasswordResetToken({ email: normalizedEmail, token: resetToken, expires });
 
       try {
         await deps.sendPasswordResetEmail(normalizedEmail, resetToken);

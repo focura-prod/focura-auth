@@ -9,4 +9,5 @@ export type {
   RefreshResult,
   FailedAttemptResult,
   AuthNextConfig,
+  DataStore,
 } from "./types.js";

@@ -1,5 +1,5 @@
 import type { NextAuthOptions } from "next-auth";
-import type { AuthNextConfig, TokenResponse } from "./types.js";
+import type { AuthNextConfig, TokenResponse, DataStore } from "./types.js";
 import { exchangeForTokens } from "./exchange.js";
 import { silentRefresh } from "./refresh.js";
 import { callInternal, recordLoginFailure } from "./bridge.js";
@@ -102,7 +102,7 @@ export async function createAuthOptions(config: AuthNextConfig): Promise<NextAut
   );
 
   return {
-    ...(config.prismaAdapter ? { adapter: config.prismaAdapter as NextAuthOptions["adapter"] } : {}),
+    ...(config.adapter ? { adapter: config.adapter as NextAuthOptions["adapter"] } : {}),
     providers,
     events: {
       async linkAccount({ user, account }) {

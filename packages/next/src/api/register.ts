@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DataStore } from "../types.js";
 
 const registerSchema = z.object({
   name: z.string().min(4, "Name must be at least 4 characters"),
@@ -7,7 +8,7 @@ const registerSchema = z.object({
 });
 
 export async function handleRegister(req: Request, deps: {
-  prisma: { user: { findUnique: (args: { where: { email: string } }) => Promise<unknown | null>; create: (args: unknown) => Promise<unknown> }; verificationToken: { create: (args: unknown) => Promise<unknown> } };
+  dataStore: DataStore;
   argon2: { hash: (pwd: string) => Promise<string> };
   sendVerificationEmail: (email: string, token: string) => Promise<void>;
   limiter?: { check?: (key: string) => Promise<boolean> };
@@ -28,7 +29,7 @@ export async function handleRegister(req: Request, deps: {
     const { name, email, password } = parsed.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    const existing = await deps.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    const existing = await deps.dataStore.findUserByEmail(normalizedEmail);
     if (existing) {
       return Response.json({ error: "An account with this email already exists" }, { status: 409 });
     }
@@ -37,12 +38,8 @@ export async function handleRegister(req: Request, deps: {
     const verificationToken = crypto.randomUUID();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await deps.prisma.user.create({
-      data: { name, email: normalizedEmail, password: hashedPassword },
-    });
-    await deps.prisma.verificationToken.create({
-      data: { identifier: normalizedEmail, token: verificationToken, expires },
-    });
+    await deps.dataStore.createUser({ name, email: normalizedEmail, password: hashedPassword });
+    await deps.dataStore.createVerificationToken({ identifier: normalizedEmail, token: verificationToken, expires });
 
     try {
       await deps.sendVerificationEmail(normalizedEmail, verificationToken);

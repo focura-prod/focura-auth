@@ -1,15 +1,7 @@
-import crypto from "crypto";
+import type { DataStore } from "../types.js";
 
 export async function handleResetPassword(req: Request, deps: {
-  prisma: {
-    passwordResetToken: {
-      findFirst: (args: { where: { token: string; expires: { gt: Date } } }) => Promise<{ email: string; token: string } | null>;
-      delete: (args: { where: { email: string } }) => Promise<unknown>;
-    };
-    user: {
-      update: (args: { where: { email: string }; data: { password: string; lastPasswordChange: Date } }) => Promise<unknown>;
-    };
-  };
+  dataStore: DataStore;
   argon2: { hash: (pwd: string) => Promise<string> };
 }) {
   try {
@@ -17,17 +9,12 @@ export async function handleResetPassword(req: Request, deps: {
     if (!token || !password) return Response.json({ error: "Token and password required" }, { status: 400 });
     if (password.length < 8) return Response.json({ error: "Password must be at least 8 characters" }, { status: 400 });
 
-    const resetToken = await deps.prisma.passwordResetToken.findFirst({
-      where: { token, expires: { gt: new Date() } },
-    });
+    const resetToken = await deps.dataStore.findPasswordResetToken(token);
     if (!resetToken) return Response.json({ error: "Invalid or expired token" }, { status: 400 });
 
     const hashedPassword = await deps.argon2.hash(password);
-    await deps.prisma.user.update({
-      where: { email: resetToken.email },
-      data: { password: hashedPassword, lastPasswordChange: new Date() },
-    });
-    await deps.prisma.passwordResetToken.delete({ where: { email: resetToken.email } });
+    await deps.dataStore.updateUserByEmail(resetToken.email, { password: hashedPassword, lastPasswordChange: new Date() });
+    await deps.dataStore.deletePasswordResetToken(resetToken.email);
 
     return Response.json({ message: "Password reset successfully" });
   } catch (error) {
