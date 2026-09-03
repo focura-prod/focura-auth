@@ -98,7 +98,7 @@
     "directory": "packages/next"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "publishConfig": {
     "access": "public"
