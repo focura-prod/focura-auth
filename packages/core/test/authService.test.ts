@@ -231,7 +231,7 @@ describe("AuthService", () => {
         { sub: "user-1", email: "test@example.com", role: "USER", type: "access", version: 1, jti: "j1", sessionId: "s1" },
         privateKey, { algorithm: "RS256", expiresIn: "15m", issuer: "test-issuer", audience: "test-audience" }
       );
-      const fp = crypto.createHash("sha256").update("Other|Other|desktop|").digest("hex").substring(0, 32);
+      const fp = crypto.createHash("sha256").update("Other|Other|desktop|").digest("hex");
       await redis.setex("focura:session:metadata:s1", 3600, JSON.stringify({
         deviceId: fp, ipAddress: "1.2.3.4", userAgent: "Chrome", lastActivity: Date.now() - 10_000,
       }));

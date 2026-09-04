@@ -20,6 +20,7 @@ export class AccountLockout {
   async recordFailedAttempt(
     identifier: string,
   ): Promise<{ locked: boolean; unlocksAt?: Date; attempts: number }> {
+    if (!identifier) return { locked: false, attempts: 0 };
     try {
       const failKey = `${this.prefix}:failures:${identifier}`;
       const lockKey = `${this.prefix}:locked:${identifier}`;
@@ -57,6 +58,7 @@ export class AccountLockout {
   }
 
   async isAccountLocked(identifier: string): Promise<{ locked: boolean; unlocksAt?: Date }> {
+    if (!identifier) return { locked: false };
     try {
       const lockedUntil = await this.redis.get(`${this.prefix}:locked:${identifier}`);
       if (!lockedUntil) return { locked: false };

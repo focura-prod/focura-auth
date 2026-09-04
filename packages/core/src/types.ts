@@ -116,6 +116,8 @@ export interface SessionConfig {
   absoluteTimeout?: number;
   maxConcurrent?: number;
   metadataTtl?: number;
+  /** Maximum session age in ms. After this, refresh is denied regardless of token validity. */
+  maxSessionAge?: number;
 }
 
 export interface AuthCoreConfig {

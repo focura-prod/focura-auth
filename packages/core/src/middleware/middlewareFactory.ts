@@ -379,7 +379,9 @@ export class MiddlewareFactory {
       return async (req: AuthRequest, res: { status(code: number): { json(data: unknown): unknown } }, next: (err?: Error) => void) => {
         const ip = getClientIp(req, self.config.trustedProxies);
         const userKey = keyFn?.(req);
-        const key = userKey ? `${self.config.keyPrefix}rl:user:${userKey}` : `${self.config.keyPrefix}rl:backend:${ip}`;
+        const key = userKey
+          ? `${self.config.keyPrefix}rl:user:${userKey}`
+          : `${self.config.keyPrefix}rl:backend:${ip}`;
 
         try {
           const redis = self.config.redis;
@@ -558,8 +560,14 @@ export class MiddlewareFactory {
         }
 
         const createdKey = `${self.config.keyPrefix}session:created:${decoded.sessionId}`;
-        if ((await redis.exists(createdKey)) !== 1) {
+        const createdAt = await redis.get(createdKey);
+        if (!createdAt) {
           throw self.errors.UnauthorizedError("Session expired", "SESSION_TIMEOUT");
+        }
+        const sessionAge = Date.now() - Number(createdAt);
+        if (sessionAge > self.config.maxSessionAge) {
+          await redis.del(createdKey);
+          throw self.errors.UnauthorizedError("Session expired", "SESSION_MAX_AGE");
         }
 
         const newTokens = self.tokenManager.createTokenPair({

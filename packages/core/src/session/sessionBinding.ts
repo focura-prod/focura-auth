@@ -19,17 +19,21 @@ export function looksLikeServerToServerRequest(req: {
 export function normalizeUserAgent(userAgent: string): string {
   const ua = userAgent || "";
   const mobile = /Mobile|Android|iPhone|iPad|iPod/i.test(ua);
-  const browser = /Edg\//i.test(ua)
-    ? "Edge"
-    : /OPR\/|Opera/i.test(ua)
-      ? "Opera"
-      : /Firefox\/|FxiOS/i.test(ua)
-        ? "Firefox"
-        : /CriOS\/|Chrome\//i.test(ua)
-          ? "Chrome"
-          : /Safari\//i.test(ua)
-            ? "Safari"
-            : "Other";
+  const browser = /Brave(?:\s|\/)/i.test(ua)
+    ? "Brave"
+    : /Edg\//i.test(ua)
+      ? "Edge"
+      : /Vivaldi\//i.test(ua)
+        ? "Vivaldi"
+        : /OPR\/|Opera/i.test(ua)
+          ? "Opera"
+          : /Firefox\/|FxiOS/i.test(ua)
+            ? "Firefox"
+            : /CriOS\/|Chrome\//i.test(ua)
+              ? "Chrome"
+              : /Safari\//i.test(ua)
+                ? "Safari"
+                : "Other";
   const os = /Android/i.test(ua)
     ? "Android"
     : /iPhone|iPad|iPod/i.test(ua)
@@ -57,7 +61,7 @@ export function generateDeviceFingerprint(req: {
     primaryLanguage((req.headers["accept-language"] as string) || ""),
   ].join("|");
 
-  return crypto.createHash("sha256").update(components).digest("hex").substring(0, 32);
+  return crypto.createHash("sha256").update(components).digest("hex");
 }
 
 function ipToNumber(ip: string): number {
@@ -133,7 +137,7 @@ export function createSessionMetadata(
 }
 
 export function isPrivateIp(ip: string): boolean {
-  if (!ip || ip === "unknown") return true;
+  if (!ip) return false;
   const normalized = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(normalized)) {
     const [a, b] = normalized.split(".").map(Number);
@@ -166,6 +170,9 @@ export function validateSessionBinding(
     return { valid: false, reason: "DEVICE_MISMATCH" };
   }
   if (currentIp !== storedMetadata.ipAddress) {
+    if (currentIp === "unknown" || storedMetadata.ipAddress === "unknown") {
+      return { valid: true };
+    }
     if (isPrivateIp(currentIp) || isPrivateIp(storedMetadata.ipAddress)) {
       return { valid: true };
     }

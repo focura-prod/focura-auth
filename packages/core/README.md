@@ -128,8 +128,8 @@ const valid = await auth.verifyTwoFactor({ token: "123456", secret });
 // List active sessions
 const sessions = await auth.getActiveSessions(userId);
 
-// Revoke a specific session
-await auth.revokeSession(userId, sessionId);
+// Revoke a specific session (clears auth result cache)
+await auth.revokeSession(userId, sessionId, accessTokenJti);
 ```
 
 ### Account Lockout
@@ -235,6 +235,8 @@ interface AuthCoreConfig {
   keyPrefix?: string;            // Default: "focura:"
   lockout?: LockoutConfig;       // Default: 10 failures / 15min lock / 1hr window
   session?: SessionConfig;       // Default: 7d inactivity / 7d absolute / 5 max concurrent
+  serverSecret?: string;         // Optional — HMAC secret for server-to-server binding bypass
+  trustedProxies?: string[];     // Optional — CIDR-aware proxy IP validation for X-Forwarded-For
 }
 ```
 
@@ -293,6 +295,7 @@ DEFAULTS.lockoutSeconds;         // 900 (15 minutes)
 DEFAULTS.lockoutWindowSeconds;   // 3600 (1 hour)
 DEFAULTS.inactivityTimeout;      // 604800 (7 days)
 DEFAULTS.absoluteTimeout;        // 604800 (7 days)
+DEFAULTS.maxSessionAge;          // 2592000000 (30 days)
 ```
 
 ### resolveConfig

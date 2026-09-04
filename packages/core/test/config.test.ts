@@ -57,6 +57,14 @@ describe("resolveConfig", () => {
     expect(r.inactivityTimeout).toBe(100);
     expect(r.absoluteTimeout).toBe(200);
   });
+  it("should default maxSessionAge to 30 days", () => {
+    const r = resolveConfig(rawConfig());
+    expect(r.maxSessionAge).toBe(30 * 24 * 60 * 60 * 1000);
+  });
+  it("should honour maxSessionAge override", () => {
+    const r = resolveConfig(rawConfig({ session: { maxSessionAge: 7 * 24 * 60 * 60 * 1000 } }));
+    expect(r.maxSessionAge).toBe(7 * 24 * 60 * 60 * 1000);
+  });
   it("should honour lockout overrides", () => {
     const r = resolveConfig(rawConfig({ lockout: { maxFailures: 3, lockoutSeconds: 60, windowSeconds: 120 } }));
     expect(r.lockoutMaxFailures).toBe(3);

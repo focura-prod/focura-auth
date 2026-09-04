@@ -20,6 +20,7 @@ export const DEFAULTS = {
   revokedSessionTtl: 7 * 24 * 60 * 60,
   inactivityTimeout: 7 * 24 * 60 * 60,
   absoluteTimeout: 7 * 24 * 60 * 60,
+  maxSessionAge: 30 * 24 * 60 * 60 * 1000,
 } as const;
 
 export function resolveConfig(raw: AuthCoreConfig) {
@@ -39,6 +40,7 @@ export function resolveConfig(raw: AuthCoreConfig) {
     lockoutWindowSeconds: raw.lockout?.windowSeconds ?? DEFAULTS.lockoutWindowSeconds,
     inactivityTimeout: raw.session?.inactivityTimeout ?? 7 * 24 * 60 * 60,
     absoluteTimeout: raw.session?.absoluteTimeout ?? 7 * 24 * 60 * 60,
+    maxSessionAge: raw.session?.maxSessionAge ?? DEFAULTS.maxSessionAge,
     serverSecret: raw.serverSecret,
     trustedProxies: raw.trustedProxies,
   };

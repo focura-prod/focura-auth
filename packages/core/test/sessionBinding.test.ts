@@ -59,6 +59,12 @@ describe("normalizeUserAgent", () => {
   it("should detect Opera on Linux", () => {
     expect(normalizeUserAgent("Mozilla/5.0 OPR/100 Linux")).toBe("Opera|Linux|desktop");
   });
+  it("should detect Brave on Windows", () => {
+    expect(normalizeUserAgent("Mozilla/5.0 Chrome/120 Brave/1.60 Windows")).toBe("Brave|Windows|desktop");
+  });
+  it("should detect Vivaldi on macOS", () => {
+    expect(normalizeUserAgent("Mozilla/5.0 Vivaldi/6.5 Chrome/120 Macintosh")).toBe("Vivaldi|macOS|desktop");
+  });
   it("should detect Android mobile", () => {
     expect(normalizeUserAgent("Mozilla/5.0 Chrome/120 Android Mobile")).toBe("Chrome|Android|mobile");
   });
@@ -71,9 +77,9 @@ describe("normalizeUserAgent", () => {
 });
 
 describe("generateDeviceFingerprint", () => {
-  it("should produce a 32-char hex string", () => {
+  it("should produce a 64-char hex string", () => {
     const fp = generateDeviceFingerprint({ headers: { "user-agent": "Chrome/120", "accept-language": "en" } });
-    expect(fp).toMatch(/^[a-f0-9]{32}$/);
+    expect(fp).toMatch(/^[a-f0-9]{64}$/);
   });
   it("should be deterministic", () => {
     const a = generateDeviceFingerprint({ headers: { "user-agent": "Chrome/120", "accept-language": "en" } });
@@ -138,9 +144,9 @@ describe("isPrivateIp", () => {
     expect(isPrivateIp("fd00::1")).toBe(true);
     expect(isPrivateIp("::ffff:10.0.0.1")).toBe(true);
   });
-  it("should return true for unknown/empty", () => {
-    expect(isPrivateIp("")).toBe(true);
-    expect(isPrivateIp("unknown")).toBe(true);
+  it("should return false for unknown/empty", () => {
+    expect(isPrivateIp("")).toBe(false);
+    expect(isPrivateIp("unknown")).toBe(false);
   });
   it("should detect public IPs", () => {
     expect(isPrivateIp("8.8.8.8")).toBe(false);
@@ -187,5 +193,14 @@ describe("validateSessionBinding", () => {
     const oldMeta = { ...meta, lastActivity: Date.now() - 600_000 };
     const req = { headers: { "user-agent": "Chrome/120", "accept-language": "en" }, ip: "5.6.7.8" };
     expect(validateSessionBinding(req, oldMeta).valid).toBe(true);
+  });
+  it("should accept request when stored IP is unknown", () => {
+    const unknownMeta = { ...meta, ipAddress: "unknown" };
+    const req = { headers: { "user-agent": "Chrome/120", "accept-language": "en" }, ip: "5.6.7.8" };
+    expect(validateSessionBinding(req, unknownMeta).valid).toBe(true);
+  });
+  it("should accept request when current IP is unknown", () => {
+    const req = { headers: { "user-agent": "Chrome/120", "accept-language": "en" } };
+    expect(validateSessionBinding(req, meta).valid).toBe(true);
   });
 });
