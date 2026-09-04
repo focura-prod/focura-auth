@@ -130,6 +130,25 @@ export interface AuthCoreConfig {
   keyPrefix?: string;
   lockout?: LockoutConfig;
   session?: SessionConfig;
+  /**
+   * Shared secret for server-to-server requests. When set, requests must
+   * include `x-server-secret: <secret>` to bypass session binding checks.
+   * Without this, attackers can spoof server-to-server requests by omitting
+   * Accept-Language and Accept-Encoding headers, bypassing all device/IP
+   * binding and hijack detection.
+   *
+   * If not set, falls back to header-based heuristics (backward compatible).
+   */
+  serverSecret?: string;
+  /**
+   * List of trusted proxy IP addresses. When set, X-Forwarded-For header is
+   * only used if the direct connection IP is in this list. This prevents
+   * clients from spoofing their IP via X-Forwarded-For.
+   *
+   * Supports individual IPs (e.g., "10.0.0.1") and CIDR ranges (e.g., "10.0.0.0/8").
+   * If not set, X-Forwarded-For is used without validation (backward compatible).
+   */
+  trustedProxies?: string[];
 }
 
 export interface TokenPayload {
@@ -162,6 +181,8 @@ export interface SessionMetadata {
   userAgent: string;
   location?: string;
   lastActivity: number;
+  /** Latest access-token JTI bound to this session (for cache invalidation on revocation). */
+  tokenJti?: string;
 }
 
 export type AuditEventType =

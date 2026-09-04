@@ -5,6 +5,7 @@ import type {
   User,
   AuditEventType,
   SessionMetadata,
+  CacheAdapter,
 } from "../types.js";
 import { resolveConfig, DEFAULTS, type ResolvedConfig } from "../config.js";
 import { TokenManager } from "../tokens/backendToken.js";
@@ -89,9 +90,11 @@ export class AuthService {
 
   private readonly config: ResolvedConfig;
   private readonly userStore: AuthCoreConfig["userStore"];
+  private readonly cache?: CacheAdapter;
 
   constructor(rawConfig: AuthCoreConfig) {
     this.config = resolveConfig(rawConfig);
+    this.cache = rawConfig.cache;
     this.userStore = rawConfig.userStore;
     this.errors = rawConfig.errors ?? defaultErrors;
 
@@ -166,6 +169,17 @@ export class AuthService {
     if (!user.emailVerified) {
       this.audit.log("EXCHANGE_FAILED", { userId: input.userId, reason: "Email not verified" });
       throw this.errors.UnauthorizedError("Email not verified", "EMAIL_NOT_VERIFIED");
+    }
+
+    if (user.bannedAt) {
+      this.audit.log("EXCHANGE_FAILED", { userId: input.userId, reason: "Account banned" });
+      throw this.errors.AccountBannedError(user.banReason, user.bannedAt);
+    }
+
+    const lockStatus = await this.accountLockout.isAccountLocked(user.email);
+    if (lockStatus.locked) {
+      this.audit.log("EXCHANGE_FAILED", { userId: input.userId, reason: "Account locked" });
+      throw this.errors.UnauthorizedError("Account locked", "ACCOUNT_LOCKED");
     }
 
     const sessionId = input.sessionId || crypto.randomUUID();
@@ -378,15 +392,22 @@ export class AuthService {
       await this.sessionManager.revokeUserSession(input.userId, input.sessionId);
       this.audit.log("LOGOUT", { userId: input.userId, sessionId: input.sessionId });
     }
+
+    if (input.accessTokenJti && this.cache) {
+      await this.cache.delete(`auth:result:${input.accessTokenJti}`).catch(() => {});
+    }
   }
 
   async getActiveSessions(userId: string) {
     return this.sessionManager.getUserActiveSessions(userId);
   }
 
-  async revokeSession(userId: string, sessionId: string): Promise<void> {
+  async revokeSession(userId: string, sessionId: string, accessTokenJti?: string): Promise<void> {
     await this.sessionManager.revokeUserSession(userId, sessionId);
     await this.tokenRevocation.markSessionRevoked(sessionId);
+    if (accessTokenJti && this.cache) {
+      await this.cache.delete(`auth:result:${accessTokenJti}`).catch(() => {});
+    }
     this.audit.log("SESSION_REVOKED", { userId, sessionId });
   }
 

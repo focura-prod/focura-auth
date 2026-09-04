@@ -60,28 +60,73 @@ export function generateDeviceFingerprint(req: {
   return crypto.createHash("sha256").update(components).digest("hex").substring(0, 32);
 }
 
-export function getClientIp(req: {
-  ip?: string;
-  headers: Record<string, string | string[] | undefined>;
-  socket?: { remoteAddress?: string };
-}): string {
-  if (typeof req.ip === "string" && req.ip.length > 0) {
-    return req.ip.startsWith("::ffff:") ? req.ip.slice(7) : req.ip;
-  }
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]!.trim();
-  const ip = req.socket?.remoteAddress || "unknown";
-  return ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+function ipToNumber(ip: string): number {
+  const parts = ip.split(".").map(Number);
+  return ((parts[0]! << 24) | (parts[1]! << 16) | (parts[2]! << 8) | parts[3]!) >>> 0;
 }
 
-export function createSessionMetadata(req: {
-  ip?: string;
-  headers: Record<string, string | string[] | undefined>;
-  socket?: { remoteAddress?: string };
-}): SessionMetadata {
+function ipMatchesCidr(ip: string, cidr: string): boolean {
+  const [subnet, prefixStr] = cidr.split("/");
+  const prefix = Number(prefixStr);
+  if (!subnet || isNaN(prefix) || prefix < 0 || prefix > 32) return ip === cidr;
+  const ipNum = ipToNumber(ip);
+  const subnetNum = ipToNumber(subnet);
+  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+  return (ipNum & mask) === (subnetNum & mask);
+}
+
+function ipInList(ip: string, list: string[]): boolean {
+  for (const entry of list) {
+    if (entry.includes("/")) {
+      if (ipMatchesCidr(ip, entry)) return true;
+    } else if (ip === entry) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function getClientIp(
+  req: {
+    ip?: string;
+    headers: Record<string, string | string[] | undefined>;
+    socket?: { remoteAddress?: string };
+  },
+  trustedProxies?: string[],
+): string {
+  let directIp: string;
+  if (typeof req.ip === "string" && req.ip.length > 0) {
+    directIp = req.ip.startsWith("::ffff:") ? req.ip.slice(7) : req.ip;
+  } else {
+    const raw = req.socket?.remoteAddress || "unknown";
+    directIp = raw.startsWith("::ffff:") ? raw.slice(7) : raw;
+  }
+
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && trustedProxies) {
+    if (ipInList(directIp, trustedProxies)) {
+      const clientIp = forwarded.split(",")!.pop()!.trim();
+      if (clientIp) return clientIp;
+    }
+    return directIp;
+  }
+  if (typeof forwarded === "string") {
+    return forwarded.split(",")[0]!.trim();
+  }
+  return directIp;
+}
+
+export function createSessionMetadata(
+  req: {
+    ip?: string;
+    headers: Record<string, string | string[] | undefined>;
+    socket?: { remoteAddress?: string };
+  },
+  trustedProxies?: string[],
+): SessionMetadata {
   return {
     deviceId: null,
-    ipAddress: getClientIp(req),
+    ipAddress: getClientIp(req, trustedProxies),
     userAgent: (req.headers["user-agent"] as string) || "unknown",
     lastActivity: Date.now(),
   };
@@ -112,9 +157,10 @@ export function isPrivateIp(ip: string): boolean {
 export function validateSessionBinding(
   req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } },
   storedMetadata: SessionMetadata,
+  trustedProxies?: string[],
 ): { valid: boolean; reason?: string } {
   const currentDeviceId = generateDeviceFingerprint(req);
-  const currentIp = getClientIp(req);
+  const currentIp = getClientIp(req, trustedProxies);
 
   if (currentDeviceId !== storedMetadata.deviceId) {
     return { valid: false, reason: "DEVICE_MISMATCH" };

@@ -39,6 +39,8 @@ export function resolveConfig(raw: AuthCoreConfig) {
     lockoutWindowSeconds: raw.lockout?.windowSeconds ?? DEFAULTS.lockoutWindowSeconds,
     inactivityTimeout: raw.session?.inactivityTimeout ?? 7 * 24 * 60 * 60,
     absoluteTimeout: raw.session?.absoluteTimeout ?? 7 * 24 * 60 * 60,
+    serverSecret: raw.serverSecret,
+    trustedProxies: raw.trustedProxies,
   };
 }
 

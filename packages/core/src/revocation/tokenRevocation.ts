@@ -41,7 +41,7 @@ export class TokenRevocation {
       return val === "1";
     } catch (err) {
       console.error("[TokenRevocation] Failed to check revoked access token:", err);
-      return false;
+      return true;
     }
   }
 
@@ -182,7 +182,7 @@ export class TokenRevocation {
       return val === "1";
     } catch (err) {
       console.error("[TokenRevocation] Failed to check revoked session:", err);
-      return false;
+      return true;
     }
   }
 }

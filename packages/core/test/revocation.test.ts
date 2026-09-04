@@ -22,7 +22,7 @@ describe("TokenRevocation", () => {
       const r = new TokenRevocation(broken);
       // should not throw
       await r.revokeAccessToken("j", 10);
-      expect(await r.isAccessTokenRevoked("j")).toBe(false);
+      expect(await r.isAccessTokenRevoked("j")).toBe(true);
     });
   });
 
@@ -134,7 +134,7 @@ describe("TokenRevocation", () => {
     it("should handle redis errors in isSessionRevoked", async () => {
       const broken = { get: async () => { throw new Error("fail"); } } as any;
       const r = new TokenRevocation(broken);
-      expect(await r.isSessionRevoked("s")).toBe(false);
+      expect(await r.isSessionRevoked("s")).toBe(true);
     });
   });
 });

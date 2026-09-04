@@ -12,6 +12,7 @@ import type {
 import { resolveConfig, DEFAULTS, type ResolvedConfig } from "../config.js";
 import { TokenManager } from "../tokens/backendToken.js";
 import { TokenRevocation } from "../revocation/tokenRevocation.js";
+import { AccountLockout } from "../lockout/accountLockout.js";
 import { defaultErrors } from "../errors/index.js";
 import {
   getClientIp,
@@ -58,6 +59,7 @@ export class MiddlewareFactory {
   private readonly config: ResolvedConfig;
   private readonly tokenManager: TokenManager;
   private readonly tokenRevocation: TokenRevocation;
+  private readonly accountLockout: AccountLockout;
   private readonly errors: ErrorFactory;
   private readonly audit: AuditLog;
   private readonly observability?: ObservabilitySink;
@@ -69,6 +71,12 @@ export class MiddlewareFactory {
     this.config = resolveConfig(rawConfig);
     this.tokenManager = new TokenManager(rawConfig.jwt);
     this.tokenRevocation = new TokenRevocation(rawConfig.redis, this.config.keyPrefix);
+    this.accountLockout = new AccountLockout(rawConfig.redis, {
+      maxFailures: this.config.lockoutMaxFailures,
+      lockoutSeconds: this.config.lockoutSeconds,
+      windowSeconds: this.config.lockoutWindowSeconds,
+      prefix: `${this.config.keyPrefix}lockout`,
+    });
     this.errors = rawConfig.errors ?? defaultErrors;
     this.audit = new AuditLog(rawConfig.auditLogger);
     this.observability = rawConfig.observability;
@@ -95,6 +103,33 @@ export class MiddlewareFactory {
     return this.config;
   }
 
+  /**
+   * Invalidate cached user data. Call this after banning/unbanning a user,
+   * changing their role, or unverifying their email. Without this, stale
+   * cached user data (bannedAt, role, emailVerified) persists for up to 30
+   * minutes, allowing banned users to retain access.
+   */
+  async invalidateUserCache(userId: string): Promise<void> {
+    await this.cache?.delete(`auth:user:${userId}`);
+  }
+
+  /**
+   * Fully revoke a session: mark it revoked, remove from tracking, and
+   * clear the auth:result cache for the provided access-token JTI.
+   *
+   * Use this instead of calling TokenRevocation/SessionManager directly —
+   * those lower-level methods don't clear the auth:result cache, leaving
+   * revoked tokens usable for up to 5 minutes via the cached auth path.
+   */
+  async revokeSession(userId: string, sessionId: string, accessTokenJti?: string): Promise<void> {
+    await this.tokenRevocation.markSessionRevoked(sessionId);
+    await this.config.redis.srem(`${this.config.keyPrefix}user:sessions:${userId}`, sessionId);
+    await this.config.redis.del(`${this.config.keyPrefix}session:metadata:${sessionId}`);
+    if (accessTokenJti && this.cache) {
+      await this.cache.delete(`auth:result:${accessTokenJti}`).catch(() => {});
+    }
+  }
+
   async enforceSessionBinding(
     req: AuthRequest,
     decoded: JwtPayload,
@@ -112,11 +147,17 @@ export class MiddlewareFactory {
     } catch {
       return null;
     }
-    if (looksLikeServerToServerRequest(req)) return null;
+    // Server-to-server bypass: require x-server-secret when configured.
+    // Without a configured secret, fall back to header heuristics (backward
+    // compatible but weaker — see AuthCoreConfig.serverSecret docs).
+    const isServerRequest = this.config.serverSecret
+      ? (req.headers["x-server-secret"] as string) === this.config.serverSecret
+      : looksLikeServerToServerRequest(req);
+    if (isServerRequest) return null;
 
     if (metadata.deviceId == null || looksLikeServerToServerUA(metadata.userAgent)) {
       metadata.deviceId = generateDeviceFingerprint(req);
-      metadata.ipAddress = getClientIp(req);
+      metadata.ipAddress = getClientIp(req, this.config.trustedProxies);
       metadata.userAgent = (req.headers["user-agent"] as string) || "unknown";
       metadata.lastActivity = Date.now();
       this.audit.log("SESSION_BOUND", {
@@ -126,8 +167,8 @@ export class MiddlewareFactory {
         userAgent: metadata.userAgent,
       });
     } else {
-      const bindingValidation = validateSessionBinding(req, metadata);
-      const currentIp = getClientIp(req);
+      const bindingValidation = validateSessionBinding(req, metadata, this.config.trustedProxies);
+      const currentIp = getClientIp(req, this.config.trustedProxies);
 
       if (!bindingValidation.valid) {
         const isSameIpDeviceChange =
@@ -146,6 +187,12 @@ export class MiddlewareFactory {
             userAgent: metadata.userAgent,
           });
         } else {
+          if (decoded.jti) {
+            const expiry = this.tokenManager.getAccessTokenExpiry();
+            const ttlSeconds = TokenManager.parseExpiry(expiry) / 1000;
+            await this.tokenRevocation.revokeAccessToken(decoded.jti, ttlSeconds).catch(() => {});
+          }
+          await this.tokenRevocation.markSessionRevoked(decoded.sessionId).catch(() => {});
           await this.tokenRevocation.revokeAllRefreshTokens(decoded.sub);
           if (decoded.jti && this.cache) {
             await this.cache.delete(`auth:result:${decoded.jti}`);
@@ -236,7 +283,8 @@ export class MiddlewareFactory {
         if (user.bannedAt) return next(self.errors.AccountBannedError(user.banReason, user.bannedAt));
 
         if (!cachedUser && user && self.cache) {
-          void self.cache.set(`auth:user:${decoded.sub}`, user, 30 * 60).catch(() => {});
+          const { password, twoFactorSecret, ...safeUser } = user as unknown as Record<string, unknown>;
+          void self.cache.set(`auth:user:${decoded.sub}`, safeUser, 30 * 60).catch(() => {});
         }
 
         if (decoded.jti && self.cache) {
@@ -329,7 +377,7 @@ export class MiddlewareFactory {
     const self = this;
     return (max: number, windowSeconds: number, keyFn?: (req: AuthRequest) => string | undefined, options?: { failOpen?: boolean }) => {
       return async (req: AuthRequest, res: { status(code: number): { json(data: unknown): unknown } }, next: (err?: Error) => void) => {
-        const ip = getClientIp(req);
+        const ip = getClientIp(req, self.config.trustedProxies);
         const userKey = keyFn?.(req);
         const key = userKey ? `${self.config.keyPrefix}rl:user:${userKey}` : `${self.config.keyPrefix}rl:backend:${ip}`;
 
@@ -383,7 +431,7 @@ export class MiddlewareFactory {
   createExchangeHandler() {
     const self = this;
     return async (req: AuthRequest, res: { status(code: number): { json(data: unknown): unknown } }) => {
-      const ip = getClientIp(req);
+      const ip = getClientIp(req, self.config.trustedProxies);
       const { userId, email, role, sessionId, timestamp, signature } = req.body as Record<string, string>;
 
       const age = Date.now() - Number(timestamp);
@@ -429,6 +477,17 @@ export class MiddlewareFactory {
       if (!user.emailVerified) {
         self.audit.log("EXCHANGE_FAILED", { userId, email, ip, reason: "Email not verified" });
         throw self.errors.UnauthorizedError("Email not verified", "EMAIL_NOT_VERIFIED");
+      }
+
+      if (user.bannedAt) {
+        self.audit.log("EXCHANGE_FAILED", { userId, email, ip, reason: "Account banned" });
+        throw self.errors.AccountBannedError(user.banReason, user.bannedAt);
+      }
+
+      const lockStatus = await self.accountLockout.isAccountLocked(user.email);
+      if (lockStatus.locked) {
+        self.audit.log("EXCHANGE_FAILED", { userId, email, ip, reason: "Account locked" });
+        throw self.errors.UnauthorizedError("Account locked", "ACCOUNT_LOCKED");
       }
 
       const sid = sessionId || crypto.randomUUID();
@@ -546,6 +605,11 @@ export class MiddlewareFactory {
           const expiry = self.tokenManager.getAccessTokenExpiry();
           const ttlSeconds = TokenManager.parseExpiry(expiry) / 1000;
           await self.tokenRevocation.revokeAccessToken(req.user.tokenJti, ttlSeconds);
+          // Drop the auth-result cache so the revoked token is rejected immediately
+          // instead of surviving up to 5 min via the cached path.
+          if (self.cache) {
+            await self.cache.delete(`auth:result:${req.user.tokenJti}`).catch(() => {});
+          }
         }
       }
 
@@ -558,6 +622,7 @@ export class MiddlewareFactory {
         );
         self.audit.log("LOGOUT_ALL_DEVICES", { userId });
       } else if (userId && sessionId) {
+        await self.tokenRevocation.markSessionRevoked(sessionId);
         await self.config.redis.srem(`${self.config.keyPrefix}user:sessions:${userId}`, sessionId);
         await self.config.redis.del(`${self.config.keyPrefix}session:metadata:${sessionId}`);
         self.audit.log("LOGOUT", { userId, sessionId });
