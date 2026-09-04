@@ -1,6 +1,6 @@
 {
   "name": "@gablura/auth-core",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Production-ready authentication core for Express.js backends. Dual-token RS256 JWT architecture with session binding, token rotation, 2FA, account lockout, and audit logging.",
   "type": "module",
   "main": "./dist/index.js",

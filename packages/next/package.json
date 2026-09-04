@@ -1,6 +1,6 @@
 {
   "name": "@gablura/auth-next",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Production-ready Next.js authentication with NextAuth.js. Drop-in auth with credentials, Google OAuth, 2FA, email verification, and password reset.",
   "type": "module",
   "main": "./dist/index.js",
