@@ -1,4 +1,4 @@
-// @focura-prod/auth-core — Adapter interfaces and configuration types
+// @gablura/auth-core — Adapter interfaces and configuration types
 
 export interface RedisAdapter {
   get(key: string): Promise<string | null>;

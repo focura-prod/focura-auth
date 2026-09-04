@@ -1,4 +1,4 @@
-# @focura-prod/auth-next
+# @gablura/auth-next
 
 Production-ready Next.js authentication with NextAuth.js. Drop-in auth with credentials, Google OAuth, 2FA, email verification, and password reset.
 
@@ -34,7 +34,7 @@ complete rewrite with a different architecture and is still in beta.
 NextAuth handles session management and OAuth. This package adds what NextAuth
 does not provide out of the box:
 
-| Feature | NextAuth alone | With @focura-prod/auth-next |
+| Feature | NextAuth alone | With @gablura/auth-next |
 |---------|---------------|----------------------|
 | HMAC token exchange to backend | ❌ Manual | ✅ Built-in |
 | Silent token refresh with dedup | ❌ Manual | ✅ Built-in |
@@ -54,7 +54,7 @@ together so you do not have to build it yourself.
 ## Installation
 
 ```bash
-npm install @focura-prod/auth-next next-auth
+npm install @gablura/auth-next next-auth
 ```
 
 ## Quick Start
@@ -63,7 +63,7 @@ npm install @focura-prod/auth-next next-auth
 
 ```typescript
 // app/api/auth/[...nextauth]/route.ts
-import { createAuthOptions } from "@focura-prod/auth-next";
+import { createAuthOptions } from "@gablura/auth-next";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 
@@ -107,7 +107,7 @@ export const POST = authOptions.handlers.POST;
 
 ```tsx
 // app/auth/login/page.tsx
-import { AuthPage } from "@focura-prod/auth-next/components";
+import { AuthPage } from "@gablura/auth-next/components";
 
 export default function Login() {
   return <AuthPage callbackUrl="/dashboard" />;
@@ -116,7 +116,7 @@ export default function Login() {
 
 ```tsx
 // app/auth/forgot-password/page.tsx
-import { ForgotPasswordPage } from "@focura-prod/auth-next/components";
+import { ForgotPasswordPage } from "@gablura/auth-next/components";
 
 export default function ForgotPassword() {
   return <ForgotPasswordPage />;
@@ -126,7 +126,7 @@ export default function ForgotPassword() {
 ```tsx
 // app/auth/reset-password/page.tsx
 "use client";
-import { ResetPasswordPage } from "@focura-prod/auth-next/components";
+import { ResetPasswordPage } from "@gablura/auth-next/components";
 import { useSearchParams } from "next/navigation";
 
 export default function ResetPassword() {
@@ -139,10 +139,10 @@ export default function ResetPassword() {
 
 ```typescript
 // app/api/auth/register/route.ts
-import { handleRegister } from "@focura-prod/auth-next/api";
+import { handleRegister } from "@gablura/auth-next/api";
 import { prisma } from "@/lib/prisma";
 import * as argon2 from "argon2";
-import { sendVerificationEmail } from "@focura-prod/auth-next/email";
+import { sendVerificationEmail } from "@gablura/auth-next/email";
 
 export async function POST(req: Request) {
   return handleRegister(req, {
@@ -175,7 +175,7 @@ The package gives you **two paths** — pick what fits your project:
 Use the ready-made pages. They handle all logic, styling, and state internally.
 
 ```tsx
-import { AuthPage, ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from "@focura-prod/auth-next/components";
+import { AuthPage, ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from "@gablura/auth-next/components";
 
 // That's it — full auth UI with zero custom code
 ```
@@ -186,7 +186,7 @@ Build your own components while the package handles form logic, validation, API 
 
 ```tsx
 "use client";
-import { useAuthForm } from "@focura-prod/auth-next/hooks";
+import { useAuthForm } from "@gablura/auth-next/hooks";
 
 export default function MyCustomLogin() {
   const { register, handleSubmit, errors, isSubmitting, onSubmit, handleGoogle } = useAuthForm({
@@ -218,14 +218,14 @@ export default function MyCustomLogin() {
 
 ## Pre-built Components
 
-All components are imported from `@focura-prod/auth-next/components`.
+All components are imported from `@gablura/auth-next/components`.
 
 ### AuthPage
 
 Full-screen login/register page with toggle.
 
 ```tsx
-import { AuthPage } from "@focura-prod/auth-next/components";
+import { AuthPage } from "@gablura/auth-next/components";
 
 <AuthPage callbackUrl="/dashboard" />
 ```
@@ -239,7 +239,7 @@ import { AuthPage } from "@focura-prod/auth-next/components";
 The form itself (without the full-screen wrapper). Use when you want to embed the form in your own layout.
 
 ```tsx
-import { AuthForm } from "@focura-prod/auth-next/components";
+import { AuthForm } from "@gablura/auth-next/components";
 
 <AuthForm mode="login" onModeChange={setMode} callbackUrl="/dashboard" />
 ```
@@ -255,7 +255,7 @@ import { AuthForm } from "@focura-prod/auth-next/components";
 Loading placeholder that matches the form layout.
 
 ```tsx
-import { AuthFormSkeleton } from "@focura-prod/auth-next/components";
+import { AuthFormSkeleton } from "@gablura/auth-next/components";
 
 <AuthFormSkeleton />
 ```
@@ -267,7 +267,7 @@ No props. Pure presentational.
 Title and subtitle. Changes text based on mode.
 
 ```tsx
-import { AuthFormHeader } from "@focura-prod/auth-next/components";
+import { AuthFormHeader } from "@gablura/auth-next/components";
 
 <AuthFormHeader mode="login" />
 ```
@@ -281,7 +281,7 @@ import { AuthFormHeader } from "@focura-prod/auth-next/components";
 Email, password, and optional name fields with validation errors.
 
 ```tsx
-import { AuthFormFields } from "@focura-prod/auth-next/components";
+import { AuthFormFields } from "@gablura/auth-next/components";
 
 <AuthFormFields register={register} errors={errors} mode="login" />
 ```
@@ -297,7 +297,7 @@ import { AuthFormFields } from "@focura-prod/auth-next/components";
 Submit button and Google OAuth button.
 
 ```tsx
-import { AuthFormButtons } from "@focura-prod/auth-next/components";
+import { AuthFormButtons } from "@gablura/auth-next/components";
 
 <AuthFormButtons
   isSubmitting={isSubmitting}
@@ -321,7 +321,7 @@ import { AuthFormButtons } from "@focura-prod/auth-next/components";
 Toggle link between login and register.
 
 ```tsx
-import { AuthFormFooter } from "@focura-prod/auth-next/components";
+import { AuthFormFooter } from "@gablura/auth-next/components";
 
 <AuthFormFooter mode="login" onModeChange={setMode} />
 ```
@@ -336,7 +336,7 @@ import { AuthFormFooter } from "@focura-prod/auth-next/components";
 Full-page forgot password form.
 
 ```tsx
-import { ForgotPasswordPage } from "@focura-prod/auth-next/components";
+import { ForgotPasswordPage } from "@gablura/auth-next/components";
 
 <ForgotPasswordPage />
 ```
@@ -348,7 +348,7 @@ No props. Shows email input, sends reset link, shows success message.
 Full-page password reset form.
 
 ```tsx
-import { ResetPasswordPage } from "@focura-prod/auth-next/components";
+import { ResetPasswordPage } from "@gablura/auth-next/components";
 
 <ResetPasswordPage token={searchParams.get("token")} />
 ```
@@ -362,7 +362,7 @@ import { ResetPasswordPage } from "@focura-prod/auth-next/components";
 Full-page email verification. Auto-verifies on mount.
 
 ```tsx
-import { VerifyEmailPage } from "@focura-prod/auth-next/components";
+import { VerifyEmailPage } from "@gablura/auth-next/components";
 
 <VerifyEmailPage token={searchParams.get("token")} />
 ```
@@ -375,7 +375,7 @@ import { VerifyEmailPage } from "@focura-prod/auth-next/components";
 
 ## Hooks
 
-All hooks are imported from `@focura-prod/auth-next/hooks`. Use these to build custom UI.
+All hooks are imported from `@gablura/auth-next/hooks`. Use these to build custom UI.
 
 ### useAuthForm
 
@@ -383,7 +383,7 @@ Handles login and register form logic.
 
 ```tsx
 "use client";
-import { useAuthForm } from "@focura-prod/auth-next/hooks";
+import { useAuthForm } from "@gablura/auth-next/hooks";
 
 function MyForm() {
   const {
@@ -460,7 +460,7 @@ Handles forgot password form logic.
 
 ```tsx
 "use client";
-import { useForgetPasswordPage } from "@focura-prod/auth-next/hooks";
+import { useForgetPasswordPage } from "@gablura/auth-next/hooks";
 
 function MyForgotPassword() {
   const { error, success, register, handleSubmit, errors, isSubmitting, onSubmit } = useForgetPasswordPage();
@@ -496,7 +496,7 @@ Handles password reset form logic.
 
 ```tsx
 "use client";
-import { useResetPasswordPage } from "@focura-prod/auth-next/hooks";
+import { useResetPasswordPage } from "@gablura/auth-next/hooks";
 
 function MyResetPassword({ token }: { token: string | null }) {
   const { error, success, register, handleSubmit, errors, isSubmitting, onSubmit } = useResetPasswordPage({ token });
@@ -540,7 +540,7 @@ Auto-verifies email on mount.
 
 ```tsx
 "use client";
-import { useVerifyEmail } from "@focura-prod/auth-next/hooks";
+import { useVerifyEmail } from "@gablura/auth-next/hooks";
 
 function MyVerifyEmail({ token }: { token: string | null }) {
   const { status, message } = useVerifyEmail({ token });
@@ -564,12 +564,12 @@ function MyVerifyEmail({ token }: { token: string | null }) {
 
 ## API Route Handlers
 
-All handlers are imported from `@focura-prod/auth-next/api`.
+All handlers are imported from `@gablura/auth-next/api`.
 
 ### handleRegister
 
 ```typescript
-import { handleRegister } from "@focura-prod/auth-next/api";
+import { handleRegister } from "@gablura/auth-next/api";
 
 export async function POST(req: Request) {
   return handleRegister(req, {
@@ -597,7 +597,7 @@ export async function POST(req: Request) {
 ### handleForgotPassword
 
 ```typescript
-import { handleForgotPassword } from "@focura-prod/auth-next/api";
+import { handleForgotPassword } from "@gablura/auth-next/api";
 
 export async function POST(req: Request) {
   return handleForgotPassword(req, { dataStore, sendPasswordResetEmail });
@@ -616,7 +616,7 @@ export async function POST(req: Request) {
 ### handleResetPassword
 
 ```typescript
-import { handleResetPassword } from "@focura-prod/auth-next/api";
+import { handleResetPassword } from "@gablura/auth-next/api";
 
 export async function POST(req: Request) {
   return handleResetPassword(req, { dataStore, argon2 });
@@ -635,7 +635,7 @@ export async function POST(req: Request) {
 ### handleVerifyEmail
 
 ```typescript
-import { handleVerifyEmail } from "@focura-prod/auth-next/api";
+import { handleVerifyEmail } from "@gablura/auth-next/api";
 
 export async function POST(req: Request) {
   return handleVerifyEmail(req, { dataStore });
@@ -654,10 +654,10 @@ export async function POST(req: Request) {
 
 ## Email Functions
 
-Imported from `@focura-prod/auth-next/email`. Uses nodemailer with environment variable config.
+Imported from `@gablura/auth-next/email`. Uses nodemailer with environment variable config.
 
 ```typescript
-import { sendVerificationEmail, sendPasswordResetEmail } from "@focura-prod/auth-next/email";
+import { sendVerificationEmail, sendPasswordResetEmail } from "@gablura/auth-next/email";
 
 // Use as dependency in API handlers or call directly
 await sendVerificationEmail("user@example.com", "verification-token");
@@ -866,14 +866,14 @@ EMAIL_FROM=noreply@example.com
 
 ## Token Exchange & Refresh Utilities
 
-Imported from `@focura-prod/auth-next`. Used internally by `createAuthOptions` but available for advanced use cases.
+Imported from `@gablura/auth-next`. Used internally by `createAuthOptions` but available for advanced use cases.
 
 ### createExchangeProof
 
 Creates an HMAC-SHA256 signed proof for backend token exchange.
 
 ```typescript
-import { createExchangeProof } from "@focura-prod/auth-next";
+import { createExchangeProof } from "@gablura/auth-next";
 
 const { timestamp, signature } = createExchangeProof(
   userId,
@@ -889,7 +889,7 @@ const { timestamp, signature } = createExchangeProof(
 Exchanges an HMAC proof for JWT tokens from your backend.
 
 ```typescript
-import { exchangeForTokens } from "@focura-prod/auth-next";
+import { exchangeForTokens } from "@gablura/auth-next";
 
 const tokens = await exchangeForTokens(
   { id: user.id, email: user.email, role: user.role },
@@ -905,7 +905,7 @@ const tokens = await exchangeForTokens(
 Refreshes tokens with built-in deduplication (prevents concurrent refresh races).
 
 ```typescript
-import { silentRefresh } from "@focura-prod/auth-next";
+import { silentRefresh } from "@gablura/auth-next";
 
 const result = await silentRefresh(sessionId, refreshToken, backendUrl);
 
@@ -921,7 +921,7 @@ if (result.ok) {
 Calls the backend logout endpoint (best-effort, no error thrown).
 
 ```typescript
-import { logout } from "@focura-prod/auth-next";
+import { logout } from "@gablura/auth-next";
 
 await logout(backendUrl, backendToken, false);  // single session
 await logout(backendUrl, backendToken, true);   // all sessions
@@ -932,7 +932,7 @@ await logout(backendUrl, backendToken, true);   // all sessions
 Records a failed login attempt via the backend internal API.
 
 ```typescript
-import { recordLoginFailure } from "@focura-prod/auth-next";
+import { recordLoginFailure } from "@gablura/auth-next";
 
 const result = await recordLoginFailure(email, { backendUrl, hmacSecret });
 
@@ -947,13 +947,13 @@ if (result?.locked) {
 
 | What | Import |
 |------|--------|
-| Main config | `import { createAuthOptions } from "@focura-prod/auth-next"` |
-| Route config | `import { getRoutes, type ResolvedRoutes } from "@focura-prod/auth-next"` |
-| Token utilities | `import { createExchangeProof, exchangeForTokens, silentRefresh, logout, recordLoginFailure } from "@focura-prod/auth-next"` |
-| Components | `import { AuthPage } from "@focura-prod/auth-next/components"` |
-| Hooks | `import { useAuthForm } from "@focura-prod/auth-next/hooks"` |
-| API handlers | `import { handleRegister } from "@focura-prod/auth-next/api"` |
-| Email functions | `import { sendVerificationEmail } from "@focura-prod/auth-next/email"` |
+| Main config | `import { createAuthOptions } from "@gablura/auth-next"` |
+| Route config | `import { getRoutes, type ResolvedRoutes } from "@gablura/auth-next"` |
+| Token utilities | `import { createExchangeProof, exchangeForTokens, silentRefresh, logout, recordLoginFailure } from "@gablura/auth-next"` |
+| Components | `import { AuthPage } from "@gablura/auth-next/components"` |
+| Hooks | `import { useAuthForm } from "@gablura/auth-next/hooks"` |
+| API handlers | `import { handleRegister } from "@gablura/auth-next/api"` |
+| Email functions | `import { sendVerificationEmail } from "@gablura/auth-next/email"` |
 
 ## License
 

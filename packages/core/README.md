@@ -1,4 +1,4 @@
-# @focura-prod/auth-core
+# @gablura/auth-core
 
 Production-ready authentication engine for Node.js backends.
 
@@ -19,13 +19,13 @@ Production-ready authentication engine for Node.js backends.
 ## Installation
 
 ```bash
-npm install @focura-prod/auth-core ioredis
+npm install @gablura/auth-core ioredis
 ```
 
 ## Quick Start
 
 ```typescript
-import { AuthService } from "@focura-prod/auth-core";
+import { AuthService } from "@gablura/auth-core";
 import Redis from "ioredis";
 import fs from "fs";
 
@@ -159,7 +159,7 @@ auth.log("WORKSPACE_CREATED", { userId, workspaceId });
 For Express.js applications, use `MiddlewareFactory` for HTTP middleware:
 
 ```typescript
-import { MiddlewareFactory } from "@focura-prod/auth-core";
+import { MiddlewareFactory } from "@gablura/auth-core";
 
 const factory = new MiddlewareFactory(config);
 
@@ -250,7 +250,7 @@ openssl rsa -in private.pem -pubout -out public.pem
 ### Primary API (Recommended)
 
 ```typescript
-import { AuthService } from "@focura-prod/auth-core";
+import { AuthService } from "@gablura/auth-core";
 ```
 
 The `AuthService` class provides high-level, framework-agnostic authentication operations.
@@ -260,7 +260,7 @@ The `AuthService` class provides high-level, framework-agnostic authentication o
 Interfaces for integrating your infrastructure:
 
 ```typescript
-import type { UserStore, RedisAdapter, CacheAdapter, AuditLogger } from "@focura-prod/auth-core";
+import type { UserStore, RedisAdapter, CacheAdapter, AuditLogger } from "@gablura/auth-core";
 ```
 
 ### Advanced API
@@ -268,7 +268,7 @@ import type { UserStore, RedisAdapter, CacheAdapter, AuditLogger } from "@focura
 Low-level classes for custom integrations:
 
 ```typescript
-import { TokenManager, SessionManager, TotpManager, AccountLockout } from "@focura-prod/auth-core";
+import { TokenManager, SessionManager, TotpManager, AccountLockout } from "@gablura/auth-core";
 ```
 
 These are available but not required for normal application development.
@@ -278,7 +278,7 @@ These are available but not required for normal application development.
 ## Default Configuration
 
 ```typescript
-import { DEFAULTS } from "@focura-prod/auth-core";
+import { DEFAULTS } from "@gablura/auth-core";
 
 // All default values:
 DEFAULTS.keyPrefix;              // "focura:"
@@ -300,7 +300,7 @@ DEFAULTS.absoluteTimeout;        // 604800 (7 days)
 Merges your config with defaults. Useful for advanced customization:
 
 ```typescript
-import { resolveConfig } from "@focura-prod/auth-core";
+import { resolveConfig } from "@gablura/auth-core";
 
 const resolved = resolveConfig({
   redis,
@@ -331,7 +331,7 @@ import {
   ForbiddenError,         // 403, code: FORBIDDEN
   BadRequestError,        // 400, code: BAD_REQUEST
   ValidationError,        // 400, code: VALIDATION_ERROR
-} from "@focura-prod/auth-core";
+} from "@gablura/auth-core";
 ```
 
 ### Example: Catching errors
@@ -364,7 +364,7 @@ try {
 Use as base for custom error classes:
 
 ```typescript
-import { defaultErrors } from "@focura-prod/auth-core";
+import { defaultErrors } from "@gablura/auth-core";
 
 const customErrors = {
   ...defaultErrors,
@@ -426,7 +426,7 @@ import type {
   SessionLifecycle,     // { recordCreation, invalidate, isTracked, isInactive }
   DeviceFingerprint,    // { userAgent, acceptLanguage, acceptEncoding, ipAddress }
   AuthRequest,          // Extended request with user property
-} from "@focura-prod/auth-core";
+} from "@gablura/auth-core";
 ```
 
 ---
@@ -436,7 +436,7 @@ import type {
 All HTTP middleware and route handlers:
 
 ```typescript
-import { MiddlewareFactory } from "@focura-prod/auth-core";
+import { MiddlewareFactory } from "@gablura/auth-core";
 
 const factory = new MiddlewareFactory(config);
 
@@ -471,7 +471,7 @@ import {
   validateSessionBinding,     // (metadata, fingerprint, options) => { bound, reason? }
   looksLikeServerToServerRequest, // (req) => boolean
   looksLikeServerToServerUA,      // (ua) => boolean
-} from "@focura-prod/auth-core";
+} from "@gablura/auth-core";
 ```
 
 ---
@@ -481,7 +481,7 @@ import {
 50+ event types with severity levels:
 
 ```typescript
-import { AUDIT_SEVERITY } from "@focura-prod/auth-core";
+import { AUDIT_SEVERITY } from "@gablura/auth-core";
 
 // AUDIT_SEVERITY maps event types to severity:
 // "info"    — LOGIN_SUCCESS, LOGOUT, TOKEN_REFRESHED, SESSION_BOUND, etc.
@@ -490,7 +490,7 @@ import { AUDIT_SEVERITY } from "@focura-prod/auth-core";
 ```
 
 ```typescript
-import type { AuditEventType, AuditSeverity } from "@focura-prod/auth-core";
+import type { AuditEventType, AuditSeverity } from "@gablura/auth-core";
 
 // AuditEventType — union of all 50+ event strings
 // AuditSeverity — "info" | "warn" | "critical"
@@ -503,7 +503,7 @@ import type { AuditEventType, AuditSeverity } from "@focura-prod/auth-core";
 Validation schemas used internally (available for external use):
 
 ```typescript
-import { exchangeSchema, refreshSchema, logoutSchema } from "@focura-prod/auth-core";
+import { exchangeSchema, refreshSchema, logoutSchema } from "@gablura/auth-core";
 
 // exchangeSchema validates ExchangeInput
 // refreshSchema validates RefreshInput

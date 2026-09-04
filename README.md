@@ -6,8 +6,8 @@ Production-ready authentication for full-stack applications. Dual-token RS256 JW
 
 | Package | Description |
 |---|---|
-| [`@focura-prod/auth-core`](./packages/core) | Express.js backend auth — JWT, sessions, middleware |
-| [`@focura-prod/auth-next`](./packages/next) | Next.js frontend — NextAuth, components, hooks |
+| [`@gablura/auth-core`](./packages/core) | Express.js backend auth — JWT, sessions, middleware |
+| [`@gablura/auth-next`](./packages/next) | Next.js frontend — NextAuth, components, hooks |
 
 ## Features
 
@@ -42,11 +42,11 @@ Browser → NextAuth (Next.js) → HMAC proof → Express Backend
 ### Backend (Express)
 
 ```bash
-npm install @focura-prod/auth-core express ioredis
+npm install @gablura/auth-core express ioredis
 ```
 
 ```typescript
-import { MiddlewareFactory } from "@focura-prod/auth-core";
+import { MiddlewareFactory } from "@gablura/auth-core";
 import Redis from "ioredis";
 
 const redis = new Redis(process.env.REDIS_URL!);
@@ -66,12 +66,12 @@ app.get("/api/v1/profile", auth.createAuthenticateMiddleware(), handler);
 ### Frontend (Next.js)
 
 ```bash
-npm install @focura-prod/auth-next next-auth
+npm install @gablura/auth-next next-auth
 ```
 
 ```typescript
 // app/api/auth/[...nextauth]/route.ts
-import { createAuthOptions } from "@focura-prod/auth-next";
+import { createAuthOptions } from "@gablura/auth-next";
 
 const authOptions = createAuthOptions({
   hmacSecret: process.env.NEXTAUTH_SECRET!,
@@ -84,7 +84,7 @@ export const POST = authOptions.handlers.POST;
 
 ```tsx
 // app/auth/login/page.tsx
-import { AuthPage } from "@focura-prod/auth-next/components";
+import { AuthPage } from "@gablura/auth-next/components";
 export default function Login() { return <AuthPage />; }
 ```
 
