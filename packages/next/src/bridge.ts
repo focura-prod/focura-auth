@@ -8,14 +8,16 @@ export async function callInternal<T = Record<string, unknown>>(
 ): Promise<T | null> {
   if (process.env.NODE_ENV === "test") return null;
   try {
+    const timestamp = Date.now();
+    const payload = JSON.stringify({ ...fields, timestamp });
     const signature = crypto
       .createHmac("sha256", config.hmacSecret)
-      .update(JSON.stringify(fields))
+      .update(payload)
       .digest("hex");
     const res = await fetch(`${config.backendUrl}/api/v1/internal${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...fields, timestamp: Date.now(), signature }),
+      body: JSON.stringify({ ...fields, timestamp, signature }),
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return null;
