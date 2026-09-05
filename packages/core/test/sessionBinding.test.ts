@@ -118,6 +118,59 @@ describe("getClientIp", () => {
   it("should return unknown when nothing available", () => {
     expect(getClientIp({ headers: {} })).toBe("unknown");
   });
+  it("should use XFF from trusted proxy", () => {
+    expect(getClientIp({ ip: "10.0.0.1", headers: { "x-forwarded-for": "203.0.113.1, 7.8.9.10" } }, ["10.0.0.1"])).toBe("7.8.9.10");
+  });
+  it("should ignore XFF from untrusted proxy", () => {
+    expect(getClientIp({ ip: "8.8.8.8", headers: { "x-forwarded-for": "203.0.113.1" } }, ["10.0.0.1"])).toBe("8.8.8.8");
+  });
+  it("should use XFF from CIDR-matched proxy", () => {
+    expect(getClientIp({ ip: "10.0.0.5", headers: { "x-forwarded-for": "203.0.113.1" } }, ["10.0.0.0/8"])).toBe("203.0.113.1");
+  });
+  it("should return directIp when XFF is empty string from trusted proxy", () => {
+    expect(getClientIp({ ip: "10.0.0.1", headers: { "x-forwarded-for": "" } }, ["10.0.0.1"])).toBe("10.0.0.1");
+  });
+  it("should use socket.remoteAddress when req.ip is missing", () => {
+    expect(getClientIp({ headers: {}, socket: { remoteAddress: "192.168.1.1" } })).toBe("192.168.1.1");
+  });
+  it("should strip ::ffff: from socket.remoteAddress", () => {
+    expect(getClientIp({ headers: {}, socket: { remoteAddress: "::ffff:172.16.0.1" } })).toBe("172.16.0.1");
+  });
+});
+
+describe("ipMatchesCidr / ipInList (via getClientIp trustedProxies)", () => {
+  it("should match exact IP in trusted list", () => {
+    expect(getClientIp({ ip: "10.0.0.1", headers: { "x-forwarded-for": "1.2.3.4" } }, ["10.0.0.1"])).toBe("1.2.3.4");
+  });
+  it("should match /24 CIDR", () => {
+    expect(getClientIp({ ip: "10.0.0.50", headers: { "x-forwarded-for": "1.2.3.4" } }, ["10.0.0.0/24"])).toBe("1.2.3.4");
+  });
+  it("should match /16 CIDR", () => {
+    expect(getClientIp({ ip: "172.16.5.5", headers: { "x-forwarded-for": "1.2.3.4" } }, ["172.16.0.0/16"])).toBe("1.2.3.4");
+  });
+  it("should match /8 CIDR", () => {
+    expect(getClientIp({ ip: "10.255.255.255", headers: { "x-forwarded-for": "1.2.3.4" } }, ["10.0.0.0/8"])).toBe("1.2.3.4");
+  });
+  it("should not match different subnet", () => {
+    expect(getClientIp({ ip: "192.168.1.1", headers: { "x-forwarded-for": "1.2.3.4" } }, ["10.0.0.0/8"])).toBe("192.168.1.1");
+  });
+  it("should handle mixed exact and CIDR entries", () => {
+    expect(getClientIp({ ip: "172.16.0.1", headers: { "x-forwarded-for": "1.2.3.4" } }, ["10.0.0.1", "172.16.0.0/12"])).toBe("1.2.3.4");
+  });
+  it("should handle /0 CIDR (matches all)", () => {
+    expect(getClientIp({ ip: "8.8.8.8", headers: { "x-forwarded-for": "1.2.3.4" } }, ["0.0.0.0/0"])).toBe("1.2.3.4");
+  });
+  it("should handle invalid CIDR prefix > 32 (falls back to exact match, no match)", () => {
+    // Invalid CIDR → ipMatchesCidr falls back to exact string compare → "10.0.0.1" !== "10.0.0.1/33" → no match
+    expect(getClientIp({ ip: "10.0.0.1", headers: { "x-forwarded-for": "1.2.3.4" } }, ["10.0.0.1/33"])).toBe("10.0.0.1");
+  });
+  it("should handle non-numeric CIDR prefix (falls back to exact match, no match)", () => {
+    expect(getClientIp({ ip: "10.0.0.1", headers: { "x-forwarded-for": "1.2.3.4" } }, ["10.0.0.1/abc"])).toBe("10.0.0.1");
+  });
+  it("should handle empty CIDR subnet (falls back to exact match, matches)", () => {
+    // "/24" includes "/" → goes to ipMatchesCidr → subnet="" → !subnet → falls back to ip===cidr → "/24"==="/24" → match
+    expect(getClientIp({ ip: "/24", headers: { "x-forwarded-for": "1.2.3.4" } }, ["/24"])).toBe("1.2.3.4");
+  });
 });
 
 describe("createSessionMetadata", () => {

@@ -696,5 +696,146 @@ describe("MiddlewareFactory", () => {
       await handler(req, res);
       expect(res.status).toHaveBeenCalledWith(200);
     });
+
+    it("should clear auth:result cache on logout with tokenJti and cache", async () => {
+      const cache = mockCache();
+      const redis = new MockRedis();
+      const userStore = mockUserStore([TEST_USER]);
+      const factory = new MiddlewareFactory(makeAuthConfig({ redis, userStore, cache }));
+      cache.store.set("auth:result:my-jti", { userId: "user-1", valid: true });
+      const handler = factory.createLogoutHandler();
+      const req = mockReq(`Bearer ${makeToken({ jti: "my-jti" })}`, {
+        user: { id: "user-1", tokenJti: "my-jti", sessionId: "s1" },
+        body: {},
+      });
+      await handler(req, mockRes());
+      expect(cache.store.has("auth:result:my-jti")).toBe(false);
+    });
+
+    it("should revoke access token on logout", async () => {
+      const { factory, redis } = makeFactory();
+      const handler = factory.createLogoutHandler();
+      const req = mockReq(`Bearer ${makeToken({ jti: "revoke-me" })}`, {
+        user: { id: "user-1", tokenJti: "revoke-me", sessionId: "s1" },
+        body: {},
+      });
+      await handler(req, mockRes());
+      expect(await redis.get("focura:revoked:access:revoke-me")).toBe("1");
+    });
+
+    it("should handle logout without authorization header", async () => {
+      const { factory } = makeFactory();
+      const handler = factory.createLogoutHandler();
+      const req = mockReq(undefined, {
+        user: { id: "user-1", tokenJti: "some-jti", sessionId: "s1" },
+        body: {},
+      });
+      const res = mockRes();
+      await handler(req, res);
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+  });
+
+  describe("maxSessionAge enforcement", () => {
+    it("should reject refresh when session exceeds max age", async () => {
+      const { factory, redis } = makeFactory();
+      const handler = factory.createRefreshHandler();
+      const jti = crypto.randomUUID();
+      await redis.setex(`focura:refresh:user-1:${jti}`, 3600, JSON.stringify({ jti, createdAt: Date.now() }));
+      await redis.sadd(`focura:refresh:index:user-1`, `focura:refresh:user-1:${jti}`);
+      // Session created 61 days ago (default maxSessionAge is 30 days)
+      await redis.setex("focura:session:created:s1", 3600, String(Date.now() - 61 * 24 * 60 * 60 * 1000));
+      const req = mockReq(undefined, { body: { refreshToken: makeRefreshToken({ jti }) } });
+      await expect(handler(req, mockRes())).rejects.toThrow("expired");
+    });
+
+    it("should allow refresh when session is within max age", async () => {
+      const { factory, redis } = makeFactory();
+      const handler = factory.createRefreshHandler();
+      const jti = crypto.randomUUID();
+      await redis.setex(`focura:refresh:user-1:${jti}`, 3600, JSON.stringify({ jti, createdAt: Date.now() }));
+      await redis.sadd(`focura:refresh:index:user-1`, `focura:refresh:user-1:${jti}`);
+      await redis.setex("focura:session:created:s1", 3600, String(Date.now() - 1000));
+      const req = mockReq(undefined, { body: { refreshToken: makeRefreshToken({ jti }) } });
+      const res = mockRes();
+      await handler(req, res);
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+  });
+
+  describe("serverSecret binding bypass", () => {
+    it("should require x-server-secret when serverSecret is configured", async () => {
+      const { factory, redis } = makeFactory();
+      const config = makeAuthConfig({ serverSecret: "my-secret" });
+      const f = new MiddlewareFactory(config);
+      await redis.setex("focura:session:metadata:s1", 3600, JSON.stringify({
+        deviceId: "dev", ipAddress: "1.2.3.4", userAgent: "node", lastActivity: Date.now(),
+      }));
+      (f as any).loadUser = async () => TEST_USER;
+      const mw = f.createAuthenticateMiddleware();
+      const next = vi.fn();
+      // Without x-server-secret → should NOT bypass binding
+      await mw(mockReq(`Bearer ${makeToken()}`, { headers: { "user-agent": "node" } }), mockRes(), next);
+      // The device fingerprint won't match "dev" → should hit binding
+      expect(next).toHaveBeenCalled();
+    });
+
+    it("should bypass binding with correct x-server-secret", async () => {
+      const config = makeAuthConfig({ serverSecret: "my-secret" });
+      const f = new MiddlewareFactory(config);
+      const redis = config.redis as MockRedis;
+      await redis.setex("focura:session:metadata:s1", 3600, JSON.stringify({
+        deviceId: "dev", ipAddress: "1.2.3.4", userAgent: "node", lastActivity: Date.now(),
+      }));
+      (f as any).loadUser = async () => TEST_USER;
+      const mw = f.createAuthenticateMiddleware();
+      const next = vi.fn();
+      await mw(mockReq(`Bearer ${makeToken()}`, {
+        headers: { "user-agent": "node", "x-server-secret": "my-secret" },
+      }), mockRes(), next);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it("should reject wrong x-server-secret", async () => {
+      const config = makeAuthConfig({ serverSecret: "my-secret" });
+      const f = new MiddlewareFactory(config);
+      const redis = config.redis as MockRedis;
+      await redis.setex("focura:session:metadata:s1", 3600, JSON.stringify({
+        deviceId: "dev", ipAddress: "1.2.3.4", userAgent: "node", lastActivity: Date.now(),
+      }));
+      (f as any).loadUser = async () => TEST_USER;
+      const mw = f.createAuthenticateMiddleware();
+      const next = vi.fn();
+      await mw(mockReq(`Bearer ${makeToken()}`, {
+        headers: { "user-agent": "node", "x-server-secret": "wrong" },
+      }), mockRes(), next);
+      // Wrong secret + different device → should NOT bypass
+      expect(next).toHaveBeenCalled();
+    });
+  });
+
+  describe("exchange handler ban/lockout check", () => {
+    it("should reject exchange for banned user", async () => {
+      const bannedStore = mockUserStore([{ ...TEST_USER, bannedAt: new Date(), banReason: "violated TOS" }]);
+      const factory = new MiddlewareFactory(makeAuthConfig({ userStore: bannedStore }));
+      const handler = factory.createExchangeHandler();
+      const timestamp = Date.now();
+      const payload = `user-1test@example.comUSERs1${timestamp}`;
+      const signature = crypto.createHmac("sha256", "test-hmac-secret-32chars-long!!").update(payload).digest("hex");
+      const req = mockReq(undefined, { body: { userId: "user-1", email: "test@example.com", role: "USER", sessionId: "s1", timestamp, signature } });
+      await expect(handler(req, mockRes())).rejects.toThrow("violated TOS");
+    });
+
+    it("should reject exchange for locked account", async () => {
+      const { factory, redis } = makeFactory();
+      const handler = factory.createExchangeHandler();
+      // Lock the account
+      await redis.setex("focura:lockout:locked:test@example.com", 60, String(Date.now() + 60000));
+      const timestamp = Date.now();
+      const payload = `user-1test@example.comUSERs1${timestamp}`;
+      const signature = crypto.createHmac("sha256", "test-hmac-secret-32chars-long!!").update(payload).digest("hex");
+      const req = mockReq(undefined, { body: { userId: "user-1", email: "test@example.com", role: "USER", sessionId: "s1", timestamp, signature } });
+      await expect(handler(req, mockRes())).rejects.toThrow("locked");
+    });
   });
 });

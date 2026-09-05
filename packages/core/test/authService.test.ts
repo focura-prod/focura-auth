@@ -61,6 +61,20 @@ describe("AuthService", () => {
       await expect(service.exchange(proof)).rejects.toThrow("Email not verified");
     });
 
+    it("should reject exchange for banned user", async () => {
+      const userStore = mockUserStore([{ ...TEST_USER, bannedAt: new Date(), banReason: "violated TOS" }]);
+      const service = new AuthService(makeAuthConfig({ userStore }));
+      const proof = validExchangeProof("user-1", "test@example.com", "USER", "s1", "test-hmac-secret-32chars-long!!");
+      await expect(service.exchange(proof)).rejects.toThrow("violated TOS");
+    });
+
+    it("should reject exchange for locked account", async () => {
+      const { service, redis } = makeService();
+      await redis.setex("focura:lockout:locked:test@example.com", 60, String(Date.now() + 60000));
+      const proof = validExchangeProof("user-1", "test@example.com", "USER", "s1", "test-hmac-secret-32chars-long!!");
+      await expect(service.exchange(proof)).rejects.toThrow("locked");
+    });
+
     it("should return tokens on valid exchange", async () => {
       const { service } = makeService();
       const proof = validExchangeProof("user-1", "test@example.com", "USER", "s1", "test-hmac-secret-32chars-long!!");
@@ -372,6 +386,51 @@ describe("AuthService", () => {
     it("should revoke single session", async () => {
       const { service } = makeService();
       await service.logout({ userId: "u1", sessionId: "s1" });
+    });
+
+    it("should clear auth:result cache on logout with accessTokenJti and cache", async () => {
+      const cache = { get: async () => null, set: async () => {}, delete: async (key: string) => { deletedKeys.push(key); } };
+      const deletedKeys: string[] = [];
+      const service = new AuthService(makeAuthConfig({ cache }));
+      await service.logout({ accessTokenJti: "my-jti", userId: "u1", sessionId: "s1" });
+      expect(deletedKeys).toContain("auth:result:my-jti");
+    });
+
+    it("should not clear cache on logout without accessTokenJti", async () => {
+      const deletedKeys: string[] = [];
+      const cache = { get: async () => null, set: async () => {}, delete: async (key: string) => { deletedKeys.push(key); } };
+      const service = new AuthService(makeAuthConfig({ cache }));
+      await service.logout({ userId: "u1", sessionId: "s1" });
+      expect(deletedKeys).toHaveLength(0);
+    });
+
+    it("should not clear cache when no cache configured", async () => {
+      const service = new AuthService(makeAuthConfig());
+      await service.logout({ accessTokenJti: "my-jti", userId: "u1", sessionId: "s1" });
+    });
+  });
+
+  describe("revokeSession", () => {
+    it("should revoke session and mark as revoked", async () => {
+      const { service, redis } = makeService();
+      await service.revokeSession("user-1", "s1");
+      expect(await redis.get("focura:session:revoked:s1")).toBe("1");
+    });
+
+    it("should clear auth:result cache when accessTokenJti provided", async () => {
+      const deletedKeys: string[] = [];
+      const cache = { get: async () => null, set: async () => {}, delete: async (key: string) => { deletedKeys.push(key); } };
+      const service = new AuthService(makeAuthConfig({ cache }));
+      await service.revokeSession("user-1", "s1", "my-jti");
+      expect(deletedKeys).toContain("auth:result:my-jti");
+    });
+
+    it("should not clear cache when no accessTokenJti", async () => {
+      const deletedKeys: string[] = [];
+      const cache = { get: async () => null, set: async () => {}, delete: async (key: string) => { deletedKeys.push(key); } };
+      const service = new AuthService(makeAuthConfig({ cache }));
+      await service.revokeSession("user-1", "s1");
+      expect(deletedKeys).toHaveLength(0);
     });
   });
 
